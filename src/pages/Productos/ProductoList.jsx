@@ -7,6 +7,14 @@ import api from '../../api/axios';
 import { Plus, Edit, Trash2, Package, Hash, DollarSign, Layers } from 'lucide-react';
 import swal from '../../lib/swal';
 import LoadingButton from '../../components/ui/LoadingButton';
+import { useMemo } from 'react';  // ← agregá useMemo a este import
+import {
+  useReactTable,
+  getCoreRowModel,
+  getSortedRowModel,
+  flexRender,
+  createColumnHelper,
+} from '@tanstack/react-table';
 
 export default function ProductoList() {
   const { user } = useAuth();
@@ -16,6 +24,7 @@ export default function ProductoList() {
   const [cargando, setCargando] = useState(true);
   const [editando, setEditando] = useState(null);
   const [mostrarModal, setMostrarModal] = useState(false);
+  const [sorting, setSorting] = useState([]);
 
   const {
     register,
@@ -36,6 +45,74 @@ export default function ProductoList() {
       setCargando(false);
     }
   };
+
+  const columnHelper = createColumnHelper();
+
+  const columns = useMemo(
+    () => [
+      columnHelper.accessor('codigoSunat', {
+        header: 'Cód. SUNAT',
+        enableSorting: true,
+        cell: info => info.getValue() ?? '—',
+      }),
+      columnHelper.accessor('nombre', {
+        header: 'Nombre',
+        enableSorting: true,
+        cell: info => <span className="font-bold">{info.getValue()}</span>,
+      }),
+      columnHelper.accessor('precioUnitario', {
+        header: 'Precio',
+        enableSorting: true,
+        cell: info => `S/ ${info.getValue().toFixed(2)}`,
+      }),
+      columnHelper.accessor('stock', {
+        header: 'Stock',
+        enableSorting: true,
+        cell: info => info.getValue() ?? '—',
+      }),
+      columnHelper.accessor('nombreAfectacionIgv', {
+        header: 'Afectación IGV',
+        enableSorting: false,
+        cell: info => (
+          <span className="badge badge-ghost">{info.getValue() ?? '—'}</span>
+        ),
+      }),
+      // Columna de acciones (solo si es admin), sin ordenamiento
+      columnHelper.display({
+        id: 'acciones',
+        header: 'Acciones',
+        cell: ({ row }) =>
+          user?.nombreRol === 'Administrador' ? (
+            <div className="flex gap-1">
+              <button
+                className="btn btn-ghost btn-xs"
+                onClick={() => abrirModalEditar(row.original)}
+                title="Editar"
+              >
+                <Edit size={16} />
+              </button>
+              <button
+                className="btn btn-ghost btn-xs text-error"
+                onClick={() => eliminarProducto(row.original.idProducto)}
+                title="Eliminar"
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
+          ) : null,
+      }),
+    ],
+    [user?.nombreRol]
+  );
+
+  const table = useReactTable({
+    data: productos,
+    columns,
+    state: { sorting },
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  });
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
@@ -166,54 +243,37 @@ export default function ProductoList() {
           <div className="overflow-x-auto">
             <table className="table table-zebra">
               <thead>
-                <tr>
-                  <th><Hash size={16} className="inline mr-1" />Cód. SUNAT</th>
-                  <th><Package size={16} className="inline mr-1" />Nombre</th>
-                  <th><DollarSign size={16} className="inline mr-1" />Precio</th>
-                  <th><Layers size={16} className="inline mr-1" />Stock</th>
-                  <th>Afectación IGV</th>
-                  {esAdmin && <th>Acciones</th>}
-                </tr>
+                {table.getHeaderGroups().map(headerGroup => (
+                  <tr key={headerGroup.id}>
+                    {headerGroup.headers.map(header => (
+                      <th
+                        key={header.id}
+                        className={header.column.getCanSort() ? 'cursor-pointer select-none' : ''}
+                        onClick={header.column.getToggleSortingHandler()}
+                      >
+                        {flexRender(header.column.columnDef.header, header.getContext())}
+                        {header.column.getIsSorted() === 'asc' && ' 🔼'}
+                        {header.column.getIsSorted() === 'desc' && ' 🔽'}
+                      </th>
+                    ))}
+                  </tr>
+                ))}
               </thead>
               <tbody>
-                {productos.length === 0 ? (
+                {table.getRowModel().rows.length === 0 ? (
                   <tr>
-                    <td colSpan={esAdmin ? 6 : 5} className="text-center text-gray-500 py-8">
+                    <td colSpan={columns.length} className="text-center text-gray-500 py-8">
                       No hay productos registrados
                     </td>
                   </tr>
                 ) : (
-                  productos.map((p) => (
-                    <tr key={p.idProducto}>
-                      <td>{p.codigoSunat ?? '—'}</td>
-                      <td className="font-bold">{p.nombre}</td>
-                      <td>S/ {p.precioUnitario.toFixed(2)}</td>
-                      <td>{p.stock ?? '—'}</td>
-                      <td>
-                        <span className="badge badge-ghost">
-                          {p.nombreAfectacionIgv ?? '—'}
-                        </span>
-                      </td>
-                      {esAdmin && (
-                        <td>
-                          <div className="flex gap-1">
-                            <button
-                              className="btn btn-ghost btn-xs"
-                              onClick={() => abrirModalEditar(p)}
-                              title="Editar"
-                            >
-                              <Edit size={16} />
-                            </button>
-                            <button
-                              className="btn btn-ghost btn-xs text-error"
-                              onClick={() => eliminarProducto(p.idProducto)}
-                              title="Eliminar"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
+                  table.getRowModel().rows.map(row => (
+                    <tr key={row.id}>
+                      {row.getVisibleCells().map(cell => (
+                        <td key={cell.id}>
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
                         </td>
-                      )}
+                      ))}
                     </tr>
                   ))
                 )}

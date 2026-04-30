@@ -1,15 +1,63 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import api from '../../api/axios';
 import { TrendingUp, CalendarDays, DollarSign } from 'lucide-react';
 import { format } from 'date-fns';
 import { DayPicker } from 'react-day-picker';
 import swal from '../../lib/swal';
+import {
+  useReactTable,
+  getCoreRowModel,
+  getSortedRowModel,
+  flexRender,
+  createColumnHelper,
+} from '@tanstack/react-table';
+
+const columnHelper = createColumnHelper();
 
 export default function CierreCaja() {
   const hoy = new Date();
   const [fecha, setFecha] = useState(format(hoy, 'yyyy-MM-dd'));
   const [datos, setDatos] = useState([]);
   const [cargando, setCargando] = useState(false);
+  const [sorting, setSorting] = useState([]);
+
+  const columns = useMemo(
+    () => [
+      columnHelper.accessor('concepto', {
+        header: 'Concepto',
+        enableSorting: true,
+      }),
+      columnHelper.accessor('metodoPago', {
+        header: 'Método de Pago',
+        enableSorting: true,
+        cell: info => {
+          const metodosPagoTraducidos = {
+            'Efectivo': 'Efectivo',
+            'Tarjeta de Crédito / Débito': 'Tarjeta',
+            'Transferencia bancaria (Yape/Plin)': 'Yape / Plin',
+            'Depósito en cuenta': 'Depósito',
+            'Otros': 'Otros',
+          };
+          return metodosPagoTraducidos[info.getValue()] || info.getValue();
+        },
+      }),
+      columnHelper.accessor('ingresos', {
+        header: 'Ingresos',
+        enableSorting: true,
+        cell: info => `S/ ${(info.getValue() ?? 0).toFixed(2)}`,
+      }),
+    ],
+    []
+  );
+
+  const table = useReactTable({
+    data: datos,
+    columns,
+    state: { sorting },
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  });
 
   const cargarCierre = async (fechaConsulta) => {
     setCargando(true);
@@ -30,14 +78,6 @@ export default function CierreCaja() {
   }, [fecha]);
 
   const totalGeneral = datos.reduce((sum, item) => sum + (item.ingresos || 0), 0);
-
-  const metodosPagoTraducidos = {
-    'Efectivo': 'Efectivo',
-    'Tarjeta de Crédito / Débito': 'Tarjeta',
-    'Transferencia bancaria (Yape/Plin)': 'Yape / Plin',
-    'Depósito en cuenta': 'Depósito',
-    'Otros': 'Otros',
-  };
 
   return (
     <div>
@@ -97,25 +137,37 @@ export default function CierreCaja() {
           <div className="overflow-x-auto">
             <table className="table table-zebra">
               <thead>
-                <tr>
-                  <th>Concepto</th>
-                  <th>Método de Pago</th>
-                  <th>Ingresos</th>
-                </tr>
+                {table.getHeaderGroups().map(headerGroup => (
+                  <tr key={headerGroup.id}>
+                    {headerGroup.headers.map(header => (
+                      <th
+                        key={header.id}
+                        className={header.column.getCanSort() ? 'cursor-pointer select-none' : ''}
+                        onClick={header.column.getToggleSortingHandler()}
+                      >
+                        {flexRender(header.column.columnDef.header, header.getContext())}
+                        {header.column.getIsSorted() === 'asc' && ' 🔼'}
+                        {header.column.getIsSorted() === 'desc' && ' 🔽'}
+                      </th>
+                    ))}
+                  </tr>
+                ))}
               </thead>
               <tbody>
-                {datos.length === 0 ? (
+                {table.getRowModel().rows.length === 0 ? (
                   <tr>
                     <td colSpan={3} className="text-center text-gray-500 py-8">
                       {cargando ? 'Cargando...' : 'Sin movimientos para esta fecha'}
                     </td>
                   </tr>
                 ) : (
-                  datos.map((item, idx) => (
-                    <tr key={idx}>
-                      <td>{item.concepto}</td>
-                      <td>{metodosPagoTraducidos[item.metodoPago] || item.metodoPago}</td>
-                      <td className="font-semibold">S/ {item.ingresos?.toFixed(2) ?? '0.00'}</td>
+                  table.getRowModel().rows.map(row => (
+                    <tr key={row.id}>
+                      {row.getVisibleCells().map(cell => (
+                        <td key={cell.id}>
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </td>
+                      ))}
                     </tr>
                   ))
                 )}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { clienteSchema } from './clienteSchema';
@@ -7,9 +7,18 @@ import api from '../../api/axios';
 import { Controller } from 'react-hook-form';
 import { format } from 'date-fns';
 import { DayPicker } from 'react-day-picker';
-import { Plus, Edit, Trash2, Search, User, Hash, Phone, Mail } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, User } from 'lucide-react';
 import swal from '../../lib/swal';
 import LoadingButton from '../../components/ui/LoadingButton';
+import {
+  useReactTable,
+  getCoreRowModel,
+  getSortedRowModel,
+  flexRender,
+  createColumnHelper,
+} from '@tanstack/react-table';
+
+const columnHelper = createColumnHelper();
 
 export default function ClienteList() {
   const { user } = useAuth();
@@ -19,6 +28,7 @@ export default function ClienteList() {
   const [cargando, setCargando] = useState(true);
   const [editando, setEditando] = useState(null);
   const [mostrarModal, setMostrarModal] = useState(false);
+  const [sorting, setSorting] = useState([]);
 
   // Búsqueda
   const [buscarTipo, setBuscarTipo] = useState('');
@@ -32,6 +42,48 @@ export default function ClienteList() {
     formState: { errors, isSubmitting },
   } = useForm({
     resolver: zodResolver(clienteSchema),
+  });
+
+  const columns = useMemo(
+    () => [
+      columnHelper.accessor('documento', {
+        header: 'Documento',
+        enableSorting: true,
+        cell: info => {
+          const c = info.row.original;
+          const prefijo = c.tipoDocumento === '1' ? 'DNI' : 'PAS';
+          return <span className="font-bold">{prefijo}: {c.documento}</span>;
+        },
+      }),
+      columnHelper.accessor('nombres', {
+        header: 'Nombres',
+        enableSorting: true,
+      }),
+      columnHelper.accessor('apellidos', {
+        header: 'Apellidos',
+        enableSorting: true,
+      }),
+      columnHelper.accessor('telefono', {
+        header: 'Teléfono',
+        enableSorting: true,
+        cell: info => info.getValue() ?? '—',
+      }),
+      columnHelper.accessor('email', {
+        header: 'Correo',
+        enableSorting: true,
+        cell: info => info.getValue() ?? '—',
+      }),
+    ],
+    []
+  );
+
+  const table = useReactTable({
+    data: clientes,
+    columns,
+    state: { sorting },
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
   });
 
   const cargarClientes = async () => {
@@ -53,7 +105,6 @@ export default function ClienteList() {
   // Buscar por documento
   const buscarCliente = async () => {
     if (!buscarTipo || !buscarDocumento) {
-      // Si vacían los campos, recargar la lista completa
       cargarClientes();
       return;
     }
@@ -235,51 +286,57 @@ export default function ClienteList() {
         </div>
       </div>
 
-      {/* Tabla */}
+      {/* Tabla con ordenamiento */}
       <div className="card bg-base-100 shadow-md">
         <div className="card-body">
           <div className="overflow-x-auto">
             <table className="table table-zebra">
               <thead>
-                <tr>
-                  <th><Hash size={16} className="inline mr-1" />Documento</th>
-                  <th><User size={16} className="inline mr-1" />Nombres</th>
-                  <th><User size={16} className="inline mr-1" />Apellidos</th>
-                  <th><Phone size={16} className="inline mr-1" />Teléfono</th>
-                  <th><Mail size={16} className="inline mr-1" />Correo</th>
-                  {esAdmin && <th>Acciones</th>}
-                </tr>
+                {table.getHeaderGroups().map(headerGroup => (
+                  <tr key={headerGroup.id}>
+                    {headerGroup.headers.map(header => (
+                      <th
+                        key={header.id}
+                        className={header.column.getCanSort() ? 'cursor-pointer select-none' : ''}
+                        onClick={header.column.getToggleSortingHandler()}
+                      >
+                        {flexRender(header.column.columnDef.header, header.getContext())}
+                        {header.column.getIsSorted() === 'asc' && ' 🔼'}
+                        {header.column.getIsSorted() === 'desc' && ' 🔽'}
+                      </th>
+                    ))}
+                    {esAdmin && <th>Acciones</th>}
+                  </tr>
+                ))}
               </thead>
               <tbody>
-                {clientes.length === 0 ? (
+                {table.getRowModel().rows.length === 0 ? (
                   <tr>
                     <td colSpan={esAdmin ? 6 : 5} className="text-center text-gray-500 py-8">
                       No se encontraron clientes
                     </td>
                   </tr>
                 ) : (
-                  clientes.map((c) => (
-                    <tr key={c.idCliente}>
-                      <td className="font-bold">
-                        {c.tipoDocumento === '1' ? 'DNI' : 'PAS'}: {c.documento}
-                      </td>
-                      <td>{c.nombres}</td>
-                      <td>{c.apellidos}</td>
-                      <td>{c.telefono ?? '—'}</td>
-                      <td>{c.email ?? '—'}</td>
+                  table.getRowModel().rows.map(row => (
+                    <tr key={row.id}>
+                      {row.getVisibleCells().map(cell => (
+                        <td key={cell.id}>
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </td>
+                      ))}
                       {esAdmin && (
                         <td>
                           <div className="flex gap-1">
                             <button
                               className="btn btn-ghost btn-xs"
-                              onClick={() => abrirModalEditar(c)}
+                              onClick={() => abrirModalEditar(row.original)}
                               title="Editar"
                             >
                               <Edit size={16} />
                             </button>
                             <button
                               className="btn btn-ghost btn-xs text-error"
-                              onClick={() => eliminarCliente(c.idCliente)}
+                              onClick={() => eliminarCliente(row.original.idCliente)}
                               title="Eliminar"
                             >
                               <Trash2 size={16} />
@@ -296,7 +353,7 @@ export default function ClienteList() {
         </div>
       </div>
 
-      {/* Modal de creación/edición */}
+      {/* Modal de creación/edición (sin cambios) */}
       {mostrarModal && (
         <div className="modal modal-open">
           <div className="modal-box max-w-lg">
@@ -311,8 +368,7 @@ export default function ClienteList() {
                   <span className="label-text">Tipo de Documento</span>
                 </label>
                 <select
-                  className={`select select-bordered ${errors.tipoDocumento ? 'select-error' : ''
-                    }`}
+                  className={`select select-bordered ${errors.tipoDocumento ? 'select-error' : ''}`}
                   {...register('tipoDocumento')}
                 >
                   {tiposDocumento.map((t) => (
@@ -335,8 +391,7 @@ export default function ClienteList() {
                 </label>
                 <input
                   type="text"
-                  className={`input input-bordered ${errors.documento ? 'input-error' : ''
-                    }`}
+                  className={`input input-bordered ${errors.documento ? 'input-error' : ''}`}
                   {...register('documento')}
                 />
                 {errors.documento && (
@@ -354,8 +409,7 @@ export default function ClienteList() {
                   </label>
                   <input
                     type="text"
-                    className={`input input-bordered ${errors.nombres ? 'input-error' : ''
-                      }`}
+                    className={`input input-bordered ${errors.nombres ? 'input-error' : ''}`}
                     {...register('nombres')}
                   />
                   {errors.nombres && (
@@ -370,8 +424,7 @@ export default function ClienteList() {
                   </label>
                   <input
                     type="text"
-                    className={`input input-bordered ${errors.apellidos ? 'input-error' : ''
-                      }`}
+                    className={`input input-bordered ${errors.apellidos ? 'input-error' : ''}`}
                     {...register('apellidos')}
                   />
                   {errors.apellidos && (
@@ -400,8 +453,7 @@ export default function ClienteList() {
                   </label>
                   <input
                     type="text"
-                    className={`input input-bordered ${errors.email ? 'input-error' : ''
-                      }`}
+                    className={`input input-bordered ${errors.email ? 'input-error' : ''}`}
                     {...register('email')}
                   />
                   {errors.email && (

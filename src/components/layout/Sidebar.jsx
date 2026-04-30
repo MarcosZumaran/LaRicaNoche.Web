@@ -60,10 +60,22 @@ const menuItems = [
         icon: FileText,
         roles: ['Administrador', 'Recepcionista', 'Limpieza']  // ← agregado
     },
+    {
+        path: '/ventas',
+        label: 'Ventas',
+        icon: ShoppingCart,
+        roles: ['Administrador', 'Recepcionista']
+    },
     { 
-        path: '/ventas', 
-        label: 'Ventas', 
+        path: '/ventas/historial', 
+        label: 'Historial de Ventas', 
         icon: ShoppingCart, 
+        roles: ['Administrador', 'Recepcionista'] 
+    },
+    { 
+        path: '/estancias/historial', 
+        label: 'Historial de Estancias', 
+        icon: DoorOpen, 
         roles: ['Administrador', 'Recepcionista'] 
     },
 

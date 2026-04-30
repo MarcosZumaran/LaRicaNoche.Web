@@ -1,8 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../api/axios';
-import { Receipt, Search, Eye, SendHorizontal } from 'lucide-react';
+import { Receipt, Eye, SendHorizontal } from 'lucide-react';
 import swal from '../../lib/swal';
+import {
+  useReactTable,
+  getCoreRowModel,
+  getSortedRowModel,
+  flexRender,
+  createColumnHelper,
+} from '@tanstack/react-table';
+
+const columnHelper = createColumnHelper();
 
 export default function ComprobanteList() {
   const { user } = useAuth();
@@ -11,6 +20,71 @@ export default function ComprobanteList() {
   const [comprobantes, setComprobantes] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [enviandoId, setEnviandoId] = useState(null);
+  const [sorting, setSorting] = useState([]);
+
+  const columns = useMemo(
+    () => [
+      columnHelper.accessor('idComprobante', {
+        header: 'N°',
+        enableSorting: true,
+        cell: info => <span className="font-bold">{info.getValue()}</span>,
+      }),
+      columnHelper.accessor('serie', {
+        header: 'Serie',
+        enableSorting: true,
+        cell: info => `${info.getValue()}-${info.row.original.correlativo}`,
+      }),
+      columnHelper.accessor('tipoComprobante', {
+        header: 'Tipo',
+        enableSorting: true,
+        cell: info => (info.getValue() === '03' ? 'Boleta' : 'Factura'),
+      }),
+      columnHelper.accessor('fechaEmision', {
+        header: 'Fecha',
+        enableSorting: true,
+        cell: info => new Date(info.getValue()).toLocaleDateString('es-PE'),
+      }),
+      columnHelper.accessor('montoTotal', {
+        header: 'Monto',
+        enableSorting: true,
+        cell: info => `S/ ${info.getValue().toFixed(2)}`,
+      }),
+      columnHelper.accessor('clienteNombre', {
+        header: 'Cliente',
+        enableSorting: true,
+      }),
+      columnHelper.accessor('nombreEstadoSunat', {
+        header: 'Estado SUNAT',
+        enableSorting: true,
+        cell: info => {
+          const idEstado = info.row.original.idEstadoSunat;
+          const clases = {
+            1: 'badge-warning',
+            2: 'badge-info',
+            3: 'badge-success',
+            4: 'badge-error',
+            5: 'badge-ghost',
+            6: 'badge-outline',
+          };
+          return (
+            <span className={`badge ${clases[idEstado] || 'badge-ghost'}`}>
+              {info.getValue() ?? '—'}
+            </span>
+          );
+        },
+      }),
+    ],
+    []
+  );
+
+  const table = useReactTable({
+    data: comprobantes,
+    columns,
+    state: { sorting },
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  });
 
   const cargarComprobantes = async () => {
     try {
@@ -23,7 +97,6 @@ export default function ComprobanteList() {
     }
   };
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     cargarComprobantes();
   }, []);
@@ -80,18 +153,6 @@ export default function ComprobanteList() {
     }
   };
 
-  const estadoBadge = (idEstado, nombre) => {
-    const clases = {
-      1: 'badge-warning', // Pendiente
-      2: 'badge-info',    // Enviado
-      3: 'badge-success', // Aceptado
-      4: 'badge-error',   // Rechazado
-      5: 'badge-ghost',   // Observado
-      6: 'badge-outline', // Anulado
-    };
-    return <span className={`badge ${clases[idEstado] || 'badge-ghost'}`}>{nombre ?? '—'}</span>;
-  };
-
   if (cargando) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -114,51 +175,55 @@ export default function ComprobanteList() {
           <div className="overflow-x-auto">
             <table className="table table-zebra">
               <thead>
-                <tr>
-                  <th>N°</th>
-                  <th>Serie</th>
-                  <th>Tipo</th>
-                  <th>Fecha</th>
-                  <th>Monto</th>
-                  <th>Cliente</th>
-                  <th>Estado SUNAT</th>
-                  <th>Acciones</th>
-                </tr>
+                {table.getHeaderGroups().map(headerGroup => (
+                  <tr key={headerGroup.id}>
+                    {headerGroup.headers.map(header => (
+                      <th
+                        key={header.id}
+                        className={header.column.getCanSort() ? 'cursor-pointer select-none' : ''}
+                        onClick={header.column.getToggleSortingHandler()}
+                      >
+                        {flexRender(header.column.columnDef.header, header.getContext())}
+                        {header.column.getIsSorted() === 'asc' && ' 🔼'}
+                        {header.column.getIsSorted() === 'desc' && ' 🔽'}
+                      </th>
+                    ))}
+                    <th>Acciones</th>
+                  </tr>
+                ))}
               </thead>
               <tbody>
-                {comprobantes.length === 0 ? (
+                {table.getRowModel().rows.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="text-center text-gray-500 py-8">
                       No se encontraron comprobantes.
                     </td>
                   </tr>
                 ) : (
-                  comprobantes.map((c) => (
-                    <tr key={c.idComprobante}>
-                      <td className="font-bold">{c.idComprobante}</td>
-                      <td>{c.serie}-{c.correlativo}</td>
-                      <td>{c.tipoComprobante === '03' ? 'Boleta' : 'Factura'}</td>
-                      <td>{new Date(c.fechaEmision).toLocaleDateString('es-PE')}</td>
-                      <td className="font-semibold">S/ {c.montoTotal.toFixed(2)}</td>
-                      <td>{c.clienteNombre}</td>
-                      <td>{estadoBadge(c.idEstadoSunat, c.nombreEstadoSunat)}</td>
+                  table.getRowModel().rows.map(row => (
+                    <tr key={row.id}>
+                      {row.getVisibleCells().map(cell => (
+                        <td key={cell.id}>
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </td>
+                      ))}
                       <td>
                         <div className="flex gap-1">
                           <button
                             className="btn btn-ghost btn-xs"
-                            onClick={() => verDetalle(c.idComprobante)}
+                            onClick={() => verDetalle(row.original.idComprobante)}
                             title="Ver detalle"
                           >
                             <Eye size={16} />
                           </button>
-                          {esAdmin && c.idEstadoSunat === 1 && (
+                          {esAdmin && row.original.idEstadoSunat === 1 && (
                             <button
                               className="btn btn-ghost btn-xs text-info"
-                              onClick={() => marcarEnviado(c.idComprobante)}
-                              disabled={enviandoId === c.idComprobante}
+                              onClick={() => marcarEnviado(row.original.idComprobante)}
+                              disabled={enviandoId === row.original.idComprobante}
                               title="Marcar como enviado"
                             >
-                              {enviandoId === c.idComprobante ? (
+                              {enviandoId === row.original.idComprobante ? (
                                 <span className="loading loading-spinner loading-xs"></span>
                               ) : (
                                 <SendHorizontal size={16} />
