@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../api/axios';
-import { Receipt, Eye, SendHorizontal } from 'lucide-react';
+import { Receipt, Eye, SendHorizontal, FileText } from 'lucide-react';
 import swal from '../../lib/swal';
 import {
   useReactTable,
@@ -10,6 +10,7 @@ import {
   flexRender,
   createColumnHelper,
 } from '@tanstack/react-table';
+import PdfViewerModal from '../../components/ui/PdfViewerModal';
 
 const columnHelper = createColumnHelper();
 
@@ -21,6 +22,8 @@ export default function ComprobanteList() {
   const [cargando, setCargando] = useState(true);
   const [enviandoId, setEnviandoId] = useState(null);
   const [sorting, setSorting] = useState([]);
+  const [pdfUrl, setPdfUrl] = useState(null);
+  const [mostrarPdf, setMostrarPdf] = useState(false);
 
   const columns = useMemo(
     () => [
@@ -153,6 +156,12 @@ export default function ComprobanteList() {
     }
   };
 
+  const verPdf = (idComprobante) => {
+    const url = `${import.meta.env.VITE_API_URL || 'http://localhost:5054/api'}/Pdf/Comprobante/${idComprobante}`;
+    setPdfUrl(url);
+    setMostrarPdf(true);
+  };
+
   if (cargando) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -211,6 +220,13 @@ export default function ComprobanteList() {
                         <div className="flex gap-1">
                           <button
                             className="btn btn-ghost btn-xs"
+                            onClick={() => verPdf(row.original.idComprobante)}
+                            title="Ver PDF"
+                          >
+                            <FileText size={16} />
+                          </button>
+                          <button
+                            className="btn btn-ghost btn-xs"
                             onClick={() => verDetalle(row.original.idComprobante)}
                             title="Ver detalle"
                           >
@@ -240,6 +256,10 @@ export default function ComprobanteList() {
           </div>
         </div>
       </div>
+
+      {mostrarPdf && (
+        <PdfViewerModal pdfUrl={pdfUrl} onClose={() => { setMostrarPdf(false); setPdfUrl(null); }} />
+      )}
     </div>
   );
 }

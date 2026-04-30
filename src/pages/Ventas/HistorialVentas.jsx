@@ -5,7 +5,8 @@ import {
 } from '@tanstack/react-table';
 import api from '../../api/axios';
 import swal from '../../lib/swal';
-import { ShoppingCart } from 'lucide-react';
+import { ShoppingCart, FileText } from 'lucide-react';
+import PdfViewerModal from '../../components/ui/PdfViewerModal';
 
 const columnHelper = createColumnHelper();
 
@@ -13,6 +14,8 @@ export default function HistorialVentas() {
     const [ventas, setVentas] = useState([]);
     const [cargando, setCargando] = useState(true);
     const [sorting, setSorting] = useState([]);
+    const [pdfUrl, setPdfUrl] = useState(null);
+    const [mostrarPdf, setMostrarPdf] = useState(false);
 
     useEffect(() => {
         api.get('/Venta')
@@ -49,6 +52,12 @@ export default function HistorialVentas() {
         getSortedRowModel: getSortedRowModel(),
     });
 
+    const verPdf = (idVenta) => {
+        const url = `${import.meta.env.VITE_API_URL || 'http://localhost:5054/api'}/Pdf/Venta/${idVenta}`;
+        setPdfUrl(url);
+        setMostrarPdf(true);
+    };
+
     if (cargando) return <div className="flex justify-center items-center h-64"><span className="loading loading-spinner loading-lg"></span></div>;
 
     return (
@@ -72,6 +81,7 @@ export default function HistorialVentas() {
                                                 {header.column.getIsSorted() === 'desc' && ' 🔽'}
                                             </th>
                                         ))}
+                                        <th>PDF</th>
                                     </tr>
                                 ))}
                             </thead>
@@ -81,6 +91,15 @@ export default function HistorialVentas() {
                                         {row.getVisibleCells().map(cell => (
                                             <td key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>
                                         ))}
+                                        <td>
+                                            <button
+                                                className="btn btn-ghost btn-xs"
+                                                onClick={() => verPdf(row.original.idVenta)}
+                                                title="Ver PDF"
+                                            >
+                                                <FileText size={16} />
+                                            </button>
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -88,6 +107,9 @@ export default function HistorialVentas() {
                     </div>
                 </div>
             </div>
+            {mostrarPdf && (
+                <PdfViewerModal pdfUrl={pdfUrl} onClose={() => { setMostrarPdf(false); setPdfUrl(null); }} />
+            )}
         </div>
     );
 }
