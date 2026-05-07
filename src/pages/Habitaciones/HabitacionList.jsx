@@ -17,6 +17,7 @@ import {
   CheckCircle, Wrench, RotateCcw, UserPlus, DoorOpen,
   ShoppingCart
 } from 'lucide-react';
+import useSignalR from '../../hooks/useSignalR';
 
 // Colores de fondo para cada estado (Tailwind)
 const cardClases = {
@@ -144,6 +145,12 @@ export default function HabitacionList() {
   useEffect(() => {
     cargarDatos();
   }, []);
+
+  // SignalR: escuchar cambios de estado en tiempo real
+  useSignalR((data) => {
+    console.log('Cambio recibido:', data);
+    cargarDatos();
+  });
 
   const ejecutarAccion = async (accion) => {
     if (!habitacionSeleccionada) return;

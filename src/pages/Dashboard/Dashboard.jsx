@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../api/axios';
 import { Bed, DollarSign, TrendingUp, Users } from 'lucide-react';
+import useSignalR from '../../hooks/useSignalR';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -43,6 +44,32 @@ export default function Dashboard() {
 
     cargarDatos();
   }, []);
+
+  // SignalR: actualizar dashboard en tiempo real
+  useSignalR(() => {
+    const cargarDatos = async () => {
+      try {
+        const [habRes, cierreRes] = await Promise.all([
+          api.get('/Reporte/estado-habitaciones'),
+          api.get('/Reporte/cierre-caja', {
+            params: { fecha: new Date().toISOString().split('T')[0] },
+          }),
+        ]);
+        const habitaciones = habRes.data;
+        const cierre = cierreRes.data;
+        setDatos({
+          totalHabitaciones: habitaciones.length,
+          ocupadas: habitaciones.filter((h) => h.estado === 'Ocupada').length,
+          disponibles: habitaciones.filter((h) => h.estado === 'Disponible').length,
+          ingresosHoy: cierre.reduce((sum, item) => sum + (item.ingresos || 0), 0),
+          estadoHabitaciones: habitaciones,
+        });
+      } catch (error) {
+        console.error('Error al actualizar dashboard:', error);
+      }
+    };
+    cargarDatos();
+  });
 
   if (cargando) {
     return (
@@ -126,13 +153,12 @@ export default function Dashboard() {
                     <td>S/ {h.precioNoche.toFixed(2)}</td>
                     <td>
                       <span
-                        className={`badge ${
-                          h.estado === 'Disponible'
+                        className={`badge ${h.estado === 'Disponible'
                             ? 'badge-success'
                             : h.estado === 'Ocupada'
-                            ? 'badge-warning'
-                            : 'badge-ghost'
-                        }`}
+                              ? 'badge-warning'
+                              : 'badge-ghost'
+                          }`}
                       >
                         {h.estado}
                       </span>
