@@ -1,374 +1,315 @@
 import { useState, useEffect } from 'react';
-import { useForm, Controller } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { useParams, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { DayPicker } from 'react-day-picker';
-import { checkinSchema } from './checkinSchema';
+import { useAuth } from '../../contexts/AuthContext';
+import { useHotelData } from '../../contexts/HotelDataContext';
 import api from '../../api/axios';
-import { UserPlus, Bed, Search } from 'lucide-react';
 import swal from '../../lib/swal';
 import LoadingButton from '../../components/ui/LoadingButton';
+import { consultarDni } from '../../api/verifica_pe';
+import {
+  ArrowLeft, UserCheck, Search, CheckCircle, UserPlus
+} from 'lucide-react';
 
 export default function CheckIn() {
-  const [habitaciones, setHabitaciones] = useState([]);
-  const [cargando, setCargando] = useState(false);
-  const [buscarDocumento, setBuscarDocumento] = useState('');
-  const [tipoBusqueda, setTipoBusqueda] = useState('1');
+  const { id } = useParams(); // id de la habitación
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { productos, configuracionHotel } = useHotelData();
 
-  const {
-    register,
-    handleSubmit,
-    reset,
-    watch,
-    setValue,
-    control,
-    formState: { errors },
-  } = useForm({
-    resolver: zodResolver(checkinSchema),
-    defaultValues: {
-      usarClienteAnonimo: false,
-      tipoDocumento: '1',
-      metodoPago: '005',
-    },
-  });
+  const [habitacion, setHabitacion] = useState(null);
+  const [cargandoHabitacion, setCargandoHabitacion] = useState(true);
+  const [cargandoAccion, setCargandoAccion] = useState(false);
 
-  const usarAnonimo = watch('usarClienteAnonimo');
+  // Datos del formulario
+  const [tipoDocumento, setTipoDocumento] = useState('1');
+  const [documento, setDocumento] = useState('');
+  const [nombres, setNombres] = useState('');
+  const [apellidos, setApellidos] = useState('');
+  const [telefono, setTelefono] = useState('');
+  const [fechaSalida, setFechaSalida] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [metodoPago, setMetodoPago] = useState('005');
+  const [usarClienteAnonimo, setUsarClienteAnonimo] = useState(false);
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
+  // Búsqueda de cliente
+  const [busquedaCliente, setBusquedaCliente] = useState('');
+  const [resultadosBusqueda, setResultadosBusqueda] = useState([]);
+  const [clienteEncontrado, setClienteEncontrado] = useState(null);
+
+  // Consulta DNI
+  const [consultandoDni, setConsultandoDni] = useState(false);
+
   useEffect(() => {
-    const cargarHabitaciones = async () => {
+    const cargarHabitacion = async () => {
       try {
-        const res = await api.get('/Habitacion');
-        const disponibles = res.data.filter((h) => h.nombreEstado === 'Disponible');
-        setHabitaciones(disponibles);
+        const res = await api.get('/Habitacion/estado-actual');
+        const hab = res.data.find(h => h.idHabitacion === parseInt(id));
+        if (!hab) throw new Error('Habitación no encontrada');
+        setHabitacion(hab);
       } catch (error) {
-        console.error('Error al cargar habitaciones:', error);
+        swal.fire('Error', 'No se pudo cargar la información de la habitación', 'error');
+        navigate('/habitaciones');
+      } finally {
+        setCargandoHabitacion(false);
       }
     };
-    cargarHabitaciones();
-  }, []);
+    cargarHabitacion();
+  }, [id, navigate]);
 
-  const buscarCliente = async () => {
-    if (!buscarDocumento.trim()) {
-      swal.fire('Atención', 'Ingresá un número de documento', 'warning');
+  // Efecto: si cambian datos del formulario manual, limpiar cliente encontrado
+  useEffect(() => {
+    setClienteEncontrado(null);
+  }, [documento, nombres, apellidos]);
+
+  const buscarClientes = async (termino) => {
+    setBusquedaCliente(termino);
+    if (termino.length < 2) {
+      setResultadosBusqueda([]);
       return;
     }
     try {
-      const res = await api.get(`/Cliente/documento/${tipoBusqueda}/${buscarDocumento}`);
-      if (res.data) {
-        setValue('nombres', res.data.nombres);
-        setValue('apellidos', res.data.apellidos);
-        setValue('telefono', res.data.telefono ?? '');
-        swal.fire('Cliente encontrado', '', 'success');
-      }
-    } catch (error) {
-      if (error.response?.status === 404) {
-        swal.fire('Nuevo cliente', 'Cliente no encontrado, completá los datos', 'info');
-      } else {
-        swal.fire('Error', 'Error al buscar cliente', 'error');
-      }
+      const res = await api.get('/Cliente/buscar', { params: { termino } });
+      setResultadosBusqueda(res.data.slice(0, 5));
+    } catch {
+      setResultadosBusqueda([]);
     }
   };
 
-  const toggleAnonimo = () => {
-    const nuevoValor = !usarAnonimo;
-    setValue('usarClienteAnonimo', nuevoValor);
-    if (nuevoValor) {
-      setValue('tipoDocumento', '0');
-      setValue('documento', '00000000');
-      setValue('nombres', 'CLIENTE');
-      setValue('apellidos', 'ANONIMO');
-      setValue('telefono', '');
-    } else {
-      setValue('tipoDocumento', '1');
-      setValue('documento', '');
-      setValue('nombres', '');
-      setValue('apellidos', '');
-      setValue('telefono', '');
-    }
+  const seleccionarCliente = (cliente) => {
+    setClienteEncontrado(cliente);
+    setTipoDocumento(cliente.tipoDocumento);
+    setDocumento(cliente.documento);
+    setNombres(cliente.nombres);
+    setApellidos(cliente.apellidos);
+    setTelefono(cliente.telefono ?? '');
+    setResultadosBusqueda([]);
+    setBusquedaCliente('');
   };
 
-  const onSubmit = async (data) => {
-    setCargando(true);
+  const verificarDni = async () => {
+    if (!documento || documento.length !== 8) return;
+    setConsultandoDni(true);
     try {
-      const res = await api.post('/Estancia/checkin', data);
+      const data = await consultarDni(documento);
+      setNombres(data.names);
+      setApellidos(`${data.paternalSurname} ${data.maternalSurname}`);
+      swal.fire('DNI verificado', 'Datos obtenidos correctamente', 'success');
+    } catch (error) {
+      swal.fire('Error', 'No se pudo verificar el DNI', 'error');
+    } finally {
+      setConsultandoDni(false);
+    }
+  };
+
+  const registrarCheckin = async () => {
+    // Validaciones mínimas
+    if (!usarClienteAnonimo && !clienteEncontrado && (!documento || !nombres)) {
+      swal.fire('Atención', 'Debe seleccionar un cliente o completar los datos', 'warning');
+      return;
+    }
+
+    setCargandoAccion(true);
+    try {
+      const payload = {
+        idHabitacion: parseInt(id),
+        tipoDocumento,
+        documento,
+        nombres,
+        apellidos,
+        telefono,
+        fechaCheckoutPrevista: fechaSalida,
+        metodoPago,
+        usarClienteAnonimo,
+        guardarCliente: !!(usarClienteAnonimo || (!clienteEncontrado && (documento || nombres))),
+        idClienteExistente: clienteEncontrado?.idCliente || null,
+      };
+
+      const res = await api.post('/Estancia/checkin', payload);
       swal.fire({
         icon: 'success',
-        title: '¡Check‑In exitoso!',
+        title: '¡Entrada registrada!',
         html: `
           <p>Estancia N° <strong>${res.data.idEstancia}</strong></p>
-          <p>Monto: <strong>S/ ${res.data.montoTotal.toFixed(2)}</strong></p>
-          <p>Habitación: <strong>${res.data.numeroHabitacion}</strong></p>
+          <p>Monto total: <strong>S/ ${res.data.montoTotal?.toFixed(2)}</strong></p>
         `,
         confirmButtonText: 'Aceptar',
       });
-      reset({
-        usarClienteAnonimo: false,
-        tipoDocumento: '1',
-        metodoPago: '005',
-      });
-      setBuscarDocumento('');
-      const habRes = await api.get('/Habitacion');
-      setHabitaciones(habRes.data.filter((h) => h.nombreEstado === 'Disponible'));
+      navigate(`/habitaciones/${id}`);
     } catch (error) {
-      const mensaje =
-        error.response?.data?.mensaje || 'Error al realizar el Check‑In';
-      swal.fire('Error', mensaje, 'error');
+      swal.fire('Error', error.response?.data?.mensaje || 'Error al registrar la entrada', 'error');
     } finally {
-      setCargando(false);
+      setCargandoAccion(false);
     }
   };
 
-  const tiposDocumento = [
-    { codigo: '1', descripcion: 'DNI' },
-    { codigo: '7', descripcion: 'Pasaporte' },
-    { codigo: '6', descripcion: 'RUC' },
-  ];
+  if (cargandoHabitacion) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <span className="loading loading-spinner loading-lg text-primary"></span>
+      </div>
+    );
+  }
 
-  const metodosPago = [
-    { codigo: '005', descripcion: 'Efectivo' },
-    { codigo: '006', descripcion: 'Tarjeta Crédito/Débito' },
-    { codigo: '008', descripcion: 'Yape / Plin' },
-    { codigo: '001', descripcion: 'Depósito en cuenta' },
-  ];
+  if (!habitacion) return null;
 
   return (
-    <div>
-      <h2 className="text-2xl font-bold mb-6">
-        <UserPlus className="inline mr-2" size={28} />
-        Check‑In
-      </h2>
+    <div className="max-w-3xl mx-auto">
+      <button className="btn btn-ghost btn-sm mb-4 gap-2" onClick={() => navigate(-1)}>
+        <ArrowLeft size={18} /> Volver
+      </button>
 
-      <form onSubmit={handleSubmit(onSubmit)} noValidate>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Columna izquierda: Cliente */}
-          <div className="card bg-base-100 shadow-md">
-            <div className="card-body">
-              <h3 className="card-title mb-4">
-                <Search size={20} /> Datos del Cliente
-              </h3>
+      <div className="mb-10">
+        <h2 className="text-3xl font-light text-base-content flex items-center gap-3">
+          <UserCheck size={32} className="text-amber-600" />
+          Registrar Entrada
+        </h2>
+        <p className="text-base text-base-content/60 mt-2">
+          Hab. {habitacion.numeroHabitacion} · {habitacion.nombreTipo}
+        </p>
+        <div className="mt-4 w-20 h-1 bg-amber-500/60"></div>
+      </div>
 
-              <div className="form-control mb-4">
-                <label className="label cursor-pointer justify-start gap-3">
-                  <input
-                    type="checkbox"
-                    className="checkbox checkbox-primary"
-                    checked={usarAnonimo}
-                    onChange={toggleAnonimo}
-                  />
-                  <span className="label-text">Cliente anónimo (boleta ≤ S/ 700)</span>
-                </label>
+      {/* Buscador de clientes */}
+      <div className="card bg-white border border-base-300 shadow-sm mb-6">
+        <div className="card-body p-6">
+          <h4 className="card-title text-base font-medium mb-3">Cliente</h4>
+
+          <div className="relative mb-4">
+            <Search className="absolute left-3 top-2.5 h-5 w-5 text-base-content/40" />
+            <input
+              type="text"
+              placeholder="Buscar cliente por nombre, apellido o DNI..."
+              className="input input-bordered w-full pl-10"
+              value={busquedaCliente}
+              onChange={(e) => buscarClientes(e.target.value)}
+            />
+            {resultadosBusqueda.length > 0 && (
+              <div className="absolute z-10 mt-1 w-full card bg-base-100 border shadow-md max-h-40 overflow-y-auto">
+                {resultadosBusqueda.map(cliente => (
+                  <div
+                    key={cliente.idCliente}
+                    className="p-2 hover:bg-base-200 cursor-pointer flex items-center gap-2"
+                    onClick={() => seleccionarCliente(cliente)}
+                  >
+                    <UserCheck size={16} className="text-primary" />
+                    <div>
+                      <p className="font-medium">{cliente.nombres} {cliente.apellidos}</p>
+                      <p className="text-xs text-base-content/60">
+                        {cliente.tipoDocumento === '1' ? 'DNI' : 'PAS'}: {cliente.documento}
+                      </p>
+                    </div>
+                  </div>
+                ))}
               </div>
-
-              {!usarAnonimo && (
-                <>
-                  <div className="flex gap-2 mb-4">
-                    <select
-                      className="select select-bordered w-1/4"
-                      value={tipoBusqueda}
-                      onChange={(e) => setTipoBusqueda(e.target.value)}
-                    >
-                      {tiposDocumento.map((t) => (
-                        <option key={t.codigo} value={t.codigo}>
-                          {t.descripcion}
-                        </option>
-                      ))}
-                    </select>
-                    <input
-                      type="text"
-                      placeholder="N° Documento"
-                      className="input input-bordered flex-1"
-                      value={buscarDocumento}
-                      onChange={(e) => setBuscarDocumento(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && buscarCliente()}
-                    />
-                    <button
-                      type="button"
-                      className="btn btn-primary"
-                      onClick={buscarCliente}
-                    >
-                      <Search size={18} /> Buscar
-                    </button>
-                  </div>
-
-                  <div className="form-control mb-4">
-                    <label className="label">
-                      <span className="label-text">Tipo Documento</span>
-                    </label>
-                    <select
-                      className={`select select-bordered ${errors.tipoDocumento ? 'select-error' : ''}`}
-                      {...register('tipoDocumento')}
-                    >
-                      {tiposDocumento.map((t) => (
-                        <option key={t.codigo} value={t.codigo}>
-                          {t.descripcion}
-                        </option>
-                      ))}
-                    </select>
-                    {errors.tipoDocumento && (
-                      <span className="label-text-alt text-error">
-                        {errors.tipoDocumento.message}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="form-control mb-4">
-                    <label className="label">
-                      <span className="label-text">Número Documento</span>
-                    </label>
-                    <input
-                      type="text"
-                      className={`input input-bordered ${errors.documento ? 'input-error' : ''}`}
-                      {...register('documento')}
-                    />
-                    {errors.documento && (
-                      <span className="label-text-alt text-error">
-                        {errors.documento.message}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4 mb-4">
-                    <div className="form-control">
-                      <label className="label">
-                        <span className="label-text">Nombres</span>
-                      </label>
-                      <input
-                        type="text"
-                        className={`input input-bordered ${errors.nombres ? 'input-error' : ''}`}
-                        {...register('nombres')}
-                      />
-                      {errors.nombres && (
-                        <span className="label-text-alt text-error">
-                          {errors.nombres.message}
-                        </span>
-                      )}
-                    </div>
-                    <div className="form-control">
-                      <label className="label">
-                        <span className="label-text">Apellidos</span>
-                      </label>
-                      <input
-                        type="text"
-                        className={`input input-bordered ${errors.apellidos ? 'input-error' : ''}`}
-                        {...register('apellidos')}
-                      />
-                      {errors.apellidos && (
-                        <span className="label-text-alt text-error">
-                          {errors.apellidos.message}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="form-control mb-4">
-                    <label className="label">
-                      <span className="label-text">Teléfono</span>
-                    </label>
-                    <input
-                      type="text"
-                      className="input input-bordered"
-                      {...register('telefono')}
-                    />
-                  </div>
-                </>
-              )}
-            </div>
+            )}
           </div>
 
-          {/* Columna derecha: Habitación y pago */}
-          <div className="card bg-base-100 shadow-md">
-            <div className="card-body">
-              <h3 className="card-title mb-4">
-                <Bed size={20} /> Habitación y Pago
-              </h3>
-
-              <div className="form-control mb-4">
-                <label className="label">
-                  <span className="label-text">Habitación</span>
-                </label>
-                <select
-                  className={`select select-bordered ${errors.idHabitacion ? 'select-error' : ''}`}
-                  {...register('idHabitacion')}
-                  defaultValue=""
-                >
-                  <option value="" disabled>
-                    Seleccioná una habitación disponible
-                  </option>
-                  {habitaciones.map((h) => (
-                    <option key={h.idHabitacion} value={h.idHabitacion}>
-                      {h.numeroHabitacion} — {h.nombreTipo} (S/ {h.precioNoche.toFixed(2)})
-                    </option>
-                  ))}
-                </select>
-                {errors.idHabitacion && (
-                  <span className="label-text-alt text-error">
-                    {errors.idHabitacion.message}
-                  </span>
-                )}
-              </div>
-
-              <div className="form-control mb-4">
-                <label className="label">
-                  <span className="label-text">Fecha de Check‑Out prevista</span>
-                </label>
-                <Controller
-                  name="fechaCheckoutPrevista"
-                  control={control}
-                  render={({ field }) => (
-                    <div className="flex justify-center">
-                      <DayPicker
-                        mode="single"
-                        selected={field.value ? new Date(field.value + 'T00:00:00') : undefined}
-                        onSelect={(date) => {
-                          if (date) {
-                            field.onChange(format(date, 'yyyy-MM-dd'));
-                          } else {
-                            field.onChange('');
-                          }
-                        }}
-                        captionLayout="dropdown"
-                        startMonth={new Date(1960, 0)}
-                        endMonth={new Date(2100, 11)}
-                        className="bg-base-100 p-4 rounded-lg shadow-lg"
-                      />
-                    </div>
-                  )}
-                />
-                {errors.fechaCheckoutPrevista && (
-                  <span className="label-text-alt text-error mt-1 block">
-                    {errors.fechaCheckoutPrevista.message}
-                  </span>
-                )}
-              </div>
-
-              <div className="form-control mb-6">
-                <label className="label">
-                  <span className="label-text">Método de Pago</span>
-                </label>
-                <select
-                  className={`select select-bordered ${errors.metodoPago ? 'select-error' : ''}`}
-                  {...register('metodoPago')}
-                >
-                  {metodosPago.map((m) => (
-                    <option key={m.codigo} value={m.codigo}>
-                      {m.descripcion}
-                    </option>
-                  ))}
-                </select>
-                {errors.metodoPago && (
-                  <span className="label-text-alt text-error">
-                    {errors.metodoPago.message}
-                  </span>
-                )}
-              </div>
-              <LoadingButton isLoading={cargando} className="w-full">
-                Confirmar Check‑In
-              </LoadingButton>
+          {/* Si hay cliente seleccionado */}
+          {clienteEncontrado && (
+            <div className="alert alert-success mb-4">
+              <UserPlus size={20} />
+              <span>{clienteEncontrado.nombres} {clienteEncontrado.apellidos} — {clienteEncontrado.documento}</span>
             </div>
+          )}
+
+          {/* Datos manuales (solo si no hay cliente seleccionado) */}
+          {!clienteEncontrado && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="form-control">
+                <label className="label py-1"><span className="label-text text-xs">Tipo Documento</span></label>
+                <select className="select select-bordered" value={tipoDocumento} onChange={e => setTipoDocumento(e.target.value)}>
+                  <option value="1">DNI</option>
+                  <option value="7">Pasaporte</option>
+                  <option value="0">Otros</option>
+                </select>
+              </div>
+              <div className="form-control">
+                <label className="label py-1"><span className="label-text text-xs">Número</span></label>
+                <div className="flex gap-2">
+                  <input
+                    className="input input-bordered flex-1"
+                    value={documento}
+                    onChange={e => setDocumento(e.target.value)}
+                  />
+                  {tipoDocumento === '1' && documento.length === 8 && (
+                    <button className="btn btn-outline btn-primary" onClick={verificarDni} disabled={consultandoDni}>
+                      {consultandoDni ? <span className="loading loading-spinner loading-xs"></span> : <CheckCircle size={18} />}
+                      DNI
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="form-control">
+                <label className="label py-1"><span className="label-text text-xs">Nombres</span></label>
+                <input className="input input-bordered" value={nombres} onChange={e => setNombres(e.target.value)} />
+              </div>
+              <div className="form-control">
+                <label className="label py-1"><span className="label-text text-xs">Apellidos</span></label>
+                <input className="input input-bordered" value={apellidos} onChange={e => setApellidos(e.target.value)} />
+              </div>
+              <div className="form-control">
+                <label className="label py-1"><span className="label-text text-xs">Teléfono</span></label>
+                <input className="input input-bordered" value={telefono} onChange={e => setTelefono(e.target.value)} />
+              </div>
+            </div>
+          )}
+
+          <label className="label cursor-pointer mt-4">
+            <input
+              type="checkbox"
+              className="checkbox checkbox-primary"
+              checked={usarClienteAnonimo}
+              onChange={e => setUsarClienteAnonimo(e.target.checked)}
+            />
+            <span className="ml-2 text-sm">Cliente anónimo (≤ S/700)</span>
+          </label>
+        </div>
+      </div>
+
+      {/* Fecha de salida y método de pago */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div className="card bg-white border border-base-300 shadow-sm">
+          <div className="card-body p-6">
+            <h4 className="card-title text-base font-medium mb-3">Fecha de salida</h4>
+            <DayPicker
+              mode="single"
+              selected={fechaSalida ? new Date(fechaSalida + 'T00:00:00') : undefined}
+              onSelect={(date) => setFechaSalida(date ? format(date, 'yyyy-MM-dd') : '')}
+              captionLayout="dropdown"
+              startMonth={new Date()}
+              endMonth={new Date(2100, 11)}
+              className="bg-base-100 p-2 rounded-lg shadow-sm border border-base-300"
+            />
           </div>
         </div>
-      </form>
+        <div className="card bg-white border border-base-300 shadow-sm">
+          <div className="card-body p-6">
+            <h4 className="card-title text-base font-medium mb-3">Método de pago</h4>
+            <select className="select select-bordered w-full" value={metodoPago} onChange={e => setMetodoPago(e.target.value)}>
+              <option value="005">Efectivo</option>
+              <option value="006">Tarjeta</option>
+              <option value="008">Yape/Plin</option>
+            </select>
+            <p className="text-sm text-base-content/60 mt-4">
+              Precio por noche: <strong>S/ {habitacion.precioNoche?.toFixed(2)}</strong>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Acciones finales */}
+      <div className="flex justify-end gap-3">
+        <button className="btn btn-ghost" onClick={() => navigate(-1)}>Cancelar</button>
+        <LoadingButton
+          type="button"
+          isLoading={cargandoAccion}
+          onClick={registrarCheckin}
+          className="btn-primary"
+        >
+          Confirmar Entrada
+        </LoadingButton>
+      </div>
     </div>
   );
 }
