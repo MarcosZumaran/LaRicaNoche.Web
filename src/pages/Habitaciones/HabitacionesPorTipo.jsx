@@ -11,21 +11,31 @@ export default function HabitacionesPorTipo() {
 
     const [habitaciones, setHabitaciones] = useState([]);
     const [cargando, setCargando] = useState(true);
+    const [error, setError] = useState(null);
 
     const tipoSeleccionado = tiposHabitacion.find(t => t.idTipo === parseInt(idTipo));
 
     useEffect(() => {
         const cargarHabitaciones = async () => {
+            setCargando(true);
+            setError(null);
             try {
                 const res = await api.get('/Habitacion/estado-actual');
+                console.log('Datos recibidos de estado-actual:', res.data);
                 if (idTipo === '0') {
                     setHabitaciones(res.data);
                 } else {
-                    const filtradas = res.data.filter(h => h.idTipo === parseInt(idTipo));
+                    const idTipoNum = parseInt(idTipo);
+                    const filtradas = res.data.filter(h => {
+                        console.log(`Comparando h.idTipo=${h.idTipo} con ${idTipoNum}`);
+                        return h.idTipo === idTipoNum;
+                    });
+                    console.log('Filtradas:', filtradas);
                     setHabitaciones(filtradas);
                 }
-            } catch (error) {
-                console.error('Error al cargar habitaciones del tipo', error);
+            } catch (err) {
+                console.error('Error al cargar habitaciones:', err);
+                setError(err.message);
             } finally {
                 setCargando(false);
             }
@@ -45,7 +55,15 @@ export default function HabitacionesPorTipo() {
         );
     }
 
-    // Si idTipo es 0, mostramos "Todas las habitaciones"
+    if (error) {
+        return (
+            <div className="alert alert-error">
+                <p>Error al cargar habitaciones: {error}</p>
+            </div>
+        );
+    }
+
+    // Vista "Todas"
     if (idTipo === '0') {
         return (
             <div>
@@ -66,10 +84,11 @@ export default function HabitacionesPorTipo() {
         );
     }
 
+    // Vista de un tipo específico
     if (!tipoSeleccionado) {
         return (
             <div className="text-center py-16 text-base-content/70">
-                Tipo de habitación no encontrado.
+                Tipo de habitación no encontrado (id: {idTipo})
             </div>
         );
     }

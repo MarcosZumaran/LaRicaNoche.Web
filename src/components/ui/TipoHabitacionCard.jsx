@@ -1,8 +1,16 @@
+import { useNavigate } from 'react-router-dom';
 import { BedDouble, Users, Check } from 'lucide-react';
 
 export default function TipoHabitacionCard({ tipo, onCardClick, selected = false }) {
+    const navigate = useNavigate();
+
     const handleClick = () => {
-        if (onCardClick) onCardClick(tipo);
+        if (onCardClick) {
+            onCardClick(tipo);
+        } else {
+            // Navegación por defecto a la lista de habitaciones de ese tipo
+            navigate(`/habitaciones/tipo/${tipo.idTipo}`);
+        }
     };
 
     return (

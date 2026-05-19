@@ -46,17 +46,17 @@ function App() {
                 <Route path="/dashboard" element={<Dashboard />} />
 
                 {/* Habitaciones – NUEVA ESTRUCTURA */}
-                <Route path="/habitaciones" element={<TipoHabitacionList />} />
                 <Route path="/habitaciones/tipo/:idTipo" element={<HabitacionesPorTipo />} />
                 <Route path="/habitaciones/nueva" element={<HabitacionForm />} />
-                <Route path="/habitaciones/:id" element={<HabitacionDetalle />} />
                 <Route path="/habitaciones/:id/editar" element={<HabitacionForm />} />
                 <Route path="/habitaciones/:id/entrada" element={<CheckIn />} />
                 <Route path="/habitaciones/:id/reservar" element={<ReservaForm />} />
                 <Route path="/habitaciones/:id/salida" element={<Salida />} />
                 <Route path="/habitaciones/:id/consumos" element={<ConsumosEstancia />} />
+                <Route path="/habitaciones/:id" element={<HabitacionDetalle />} />
+                <Route path="/habitaciones" element={<TipoHabitacionList />} />
 
-                {/* Resto de módulos (sin cambios) */}
+                {/* Resto de módulos */}
                 <Route path="/clientes" element={<ClienteList />} />
                 <Route path="/productos" element={<ProductoList />} />
                 <Route path="/ventas" element={<VentaList />} />
@@ -67,7 +67,7 @@ function App() {
               </Route>
             </Route>
 
-            {/* Ruta para Limpieza y Administrador (sin cambios) */}
+            {/* Ruta para Limpieza y Administrador */}
             <Route element={<ProtectedRoute allowedRoles={['Limpieza', 'Administrador']} />}>
               <Route element={<DashboardLayout />}>
                 <Route path="/" element={<Navigate to="/limpieza" />} />
