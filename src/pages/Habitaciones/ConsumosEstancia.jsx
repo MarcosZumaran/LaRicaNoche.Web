@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 
 export default function ConsumosEstancia() {
-    const { id } = useParams(); // id de la habitación
+    const { id } = useParams();
     const navigate = useNavigate();
     const { productos } = useHotelData();
 
@@ -17,27 +17,22 @@ export default function ConsumosEstancia() {
     const [consumos, setConsumos] = useState([]);
     const [cargando, setCargando] = useState(true);
 
-    // Formulario para agregar consumo
     const [productoSeleccionado, setProductoSeleccionado] = useState('');
     const [cantidad, setCantidad] = useState(1);
     const [agregando, setAgregando] = useState(false);
 
-    // Estado para edición inline
     const [idEditando, setIdEditando] = useState(null);
     const [editarCantidad, setEditarCantidad] = useState(1);
 
-    // Cargar estancia activa y consumos
     useEffect(() => {
         const cargarDatos = async () => {
             try {
-                // Obtener la estancia activa de la habitación
                 const habRes = await api.get('/Habitacion/estado-actual');
                 const habitacion = habRes.data.find(h => h.idHabitacion === parseInt(id));
                 if (!habitacion || !habitacion.idEstanciaActiva) {
                     throw new Error('No hay estancia activa en esta habitación');
                 }
 
-                // Obtener detalle de la estancia y consumos
                 const [estRes, consRes] = await Promise.all([
                     api.get(`/Estancia/${habitacion.idEstanciaActiva}`),
                     api.get(`/Estancia/${habitacion.idEstanciaActiva}/consumos`),
@@ -55,7 +50,6 @@ export default function ConsumosEstancia() {
         cargarDatos();
     }, [id, navigate]);
 
-    // Agregar consumo
     const agregarConsumo = async () => {
         if (!productoSeleccionado || cantidad < 1) {
             swal.fire('Atención', 'Seleccioná un producto y una cantidad válida', 'warning');
@@ -69,7 +63,6 @@ export default function ConsumosEstancia() {
                 cantidad,
             });
 
-            // Recargar lista de consumos
             const res = await api.get(`/Estancia/${estancia.idEstancia}/consumos`);
             setConsumos(res.data);
             setProductoSeleccionado('');
@@ -82,7 +75,6 @@ export default function ConsumosEstancia() {
         }
     };
 
-    // Actualizar cantidad de un consumo
     const actualizarConsumo = async (idItem, nuevaCantidad) => {
         if (nuevaCantidad < 1) return;
         try {
@@ -98,7 +90,6 @@ export default function ConsumosEstancia() {
         }
     };
 
-    // Eliminar consumo
     const eliminarConsumo = async (idItem) => {
         const confirmacion = await swal.fire({
             title: 'Eliminar consumo',
@@ -133,10 +124,9 @@ export default function ConsumosEstancia() {
 
     return (
         <div className="max-w-3xl mx-auto">
-            {/* Botón volver */}
             <button
                 className="btn btn-ghost btn-sm mb-4 gap-2"
-                onClick={() => navigate(-1)}
+                onClick={() => navigate(`/habitaciones/${id}`)}   // ← Vuelve al detalle
             >
                 <ArrowLeft size={18} /> Volver
             </button>
@@ -152,7 +142,6 @@ export default function ConsumosEstancia() {
                 <div className="mt-4 w-20 h-1 bg-amber-500/60"></div>
             </div>
 
-            {/* Formulario para agregar consumo */}
             <div className="card bg-white border border-base-300 shadow-sm mb-8">
                 <div className="card-body p-6">
                     <h4 className="card-title text-base font-medium mb-4">Agregar producto</h4>
@@ -202,7 +191,6 @@ export default function ConsumosEstancia() {
                 </div>
             </div>
 
-            {/* Lista de consumos */}
             <div className="card bg-white border border-base-300 shadow-sm">
                 <div className="card-body p-6">
                     <h4 className="card-title text-base font-medium mb-4">Consumos registrados</h4>
@@ -279,7 +267,6 @@ export default function ConsumosEstancia() {
                                     ))}
                                 </tbody>
                             </table>
-                            {/* Total consumos */}
                             <div className="text-right mt-4 text-lg font-semibold text-base-content">
                                 Total consumos: S/ {consumos.reduce((sum, c) => sum + (c.subtotal || 0), 0).toFixed(2)}
                             </div>

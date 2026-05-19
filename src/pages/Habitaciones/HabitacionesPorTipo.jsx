@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useHotelData } from '../../contexts/HotelDataContext';
 import api from '../../api/axios';
 import HabitacionCard from '../../components/ui/HabitacionCard';
-import { BedDouble } from 'lucide-react';
+import { BedDouble, ArrowLeft } from 'lucide-react';
 
 export default function HabitacionesPorTipo() {
     const { idTipo } = useParams();
+    const navigate = useNavigate();
     const { tiposHabitacion, cargando: cargandoTipos } = useHotelData();
 
     const [habitaciones, setHabitaciones] = useState([]);
@@ -21,16 +22,11 @@ export default function HabitacionesPorTipo() {
             setError(null);
             try {
                 const res = await api.get('/Habitacion/estado-actual');
-                console.log('Datos recibidos de estado-actual:', res.data);
                 if (idTipo === '0') {
                     setHabitaciones(res.data);
                 } else {
                     const idTipoNum = parseInt(idTipo);
-                    const filtradas = res.data.filter(h => {
-                        console.log(`Comparando h.idTipo=${h.idTipo} con ${idTipoNum}`);
-                        return h.idTipo === idTipoNum;
-                    });
-                    console.log('Filtradas:', filtradas);
+                    const filtradas = res.data.filter(h => h.idTipo === idTipoNum);
                     setHabitaciones(filtradas);
                 }
             } catch (err) {
@@ -44,7 +40,7 @@ export default function HabitacionesPorTipo() {
     }, [idTipo]);
 
     const handleCardClick = (habitacion) => {
-        window.location.href = `/habitaciones/${habitacion.idHabitacion}`;
+        navigate(`/habitaciones/${habitacion.idHabitacion}`);
     };
 
     if (cargandoTipos || cargando) {
@@ -63,10 +59,17 @@ export default function HabitacionesPorTipo() {
         );
     }
 
-    // Vista "Todas"
+    // Botón de volver reutilizable
+    const botonVolver = (
+        <button className="btn btn-ghost btn-sm mb-4 gap-2" onClick={() => navigate('/habitaciones')}>
+            <ArrowLeft size={18} /> Volver
+        </button>
+    );
+
     if (idTipo === '0') {
         return (
             <div>
+                {botonVolver}
                 <div className="mb-10">
                     <div className="flex items-center gap-4 mb-2">
                         <BedDouble size={36} className="text-amber-600 dark:text-amber-400" />
@@ -84,7 +87,6 @@ export default function HabitacionesPorTipo() {
         );
     }
 
-    // Vista de un tipo específico
     if (!tipoSeleccionado) {
         return (
             <div className="text-center py-16 text-base-content/70">
@@ -95,6 +97,7 @@ export default function HabitacionesPorTipo() {
 
     return (
         <div>
+            {botonVolver}
             <div className="mb-10">
                 <div className="flex items-center gap-4 mb-2">
                     <BedDouble size={36} className="text-amber-600 dark:text-amber-400" />

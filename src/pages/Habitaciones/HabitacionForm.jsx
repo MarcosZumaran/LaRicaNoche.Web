@@ -10,7 +10,7 @@ import SelectorTipoHabitacion from '../../components/ui/SelectorTipoHabitacion';
 import { habitacionSchema } from './habitacionSchema';
 
 export default function HabitacionForm() {
-    const { id } = useParams(); // Si viene un id, es edición
+    const { id } = useParams();
     const navigate = useNavigate();
     const { tiposHabitacion } = useHotelData();
 
@@ -96,7 +96,6 @@ export default function HabitacionForm() {
 
     return (
         <div className="max-w-2xl mx-auto">
-            {/* Cabecera */}
             <div className="mb-10">
                 <h2 className="text-3xl font-light text-base-content">
                     {id ? 'Editar Habitación' : 'Nueva Habitación'}
@@ -108,7 +107,6 @@ export default function HabitacionForm() {
             </div>
 
             <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-6">
-                {/* Número de habitación */}
                 <div className="form-control">
                     <label className="label">
                         <span className="label-text font-medium text-base-content/70">Número de Habitación</span>
@@ -123,8 +121,6 @@ export default function HabitacionForm() {
                         <span className="label-text-alt text-error mt-1">{errors.numeroHabitacion.message}</span>
                     )}
                 </div>
-
-                {/* Piso */}
                 <div className="form-control">
                     <label className="label">
                         <span className="label-text font-medium text-base-content/70">Piso</span>
@@ -139,8 +135,6 @@ export default function HabitacionForm() {
                         <span className="label-text-alt text-error mt-1">{errors.piso.message}</span>
                     )}
                 </div>
-
-                {/* Selector de tipo de habitación */}
                 <div className="form-control">
                     <SelectorTipoHabitacion
                         value={idTipoActual ? parseInt(idTipoActual) : null}
@@ -150,8 +144,6 @@ export default function HabitacionForm() {
                         <span className="label-text-alt text-error mt-1">{errors.idTipo.message}</span>
                     )}
                 </div>
-
-                {/* Precio por noche */}
                 <div className="form-control">
                     <label className="label">
                         <span className="label-text font-medium text-base-content/70">Precio por Noche (S/)</span>
@@ -167,8 +159,6 @@ export default function HabitacionForm() {
                         <span className="label-text-alt text-error mt-1">{errors.precioNoche.message}</span>
                     )}
                 </div>
-
-                {/* Descripción */}
                 <div className="form-control">
                     <label className="label">
                         <span className="label-text font-medium text-base-content/70">Descripción</span>
@@ -181,12 +171,11 @@ export default function HabitacionForm() {
                     />
                 </div>
 
-                {/* Acciones */}
                 <div className="flex justify-end gap-3 pt-4">
                     <button
                         type="button"
                         className="btn btn-ghost"
-                        onClick={() => navigate(-1)}
+                        onClick={() => navigate('/habitaciones')}   // ← Vuelve a la lista de tipos
                     >
                         Cancelar
                     </button>

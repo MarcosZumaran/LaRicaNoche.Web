@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import FullCalendar from '@fullcalendar/react';
@@ -40,13 +40,11 @@ export default function HabitacionDetalle() {
     useEffect(() => {
         const cargarDatos = async () => {
             try {
-                // Obtener todas las habitaciones con estado actual y quedarse con la del id
                 const habRes = await api.get('/Habitacion/estado-actual');
                 const habEncontrada = habRes.data.find(h => h.idHabitacion === parseInt(id));
                 if (!habEncontrada) throw new Error('Habitación no encontrada');
                 setHabitacion(habEncontrada);
 
-                // Cargar reservas (eventos del calendario)
                 const reservasRes = await api.get(`/Estancia/reservas/${id}`);
                 const eventos = reservasRes.data.map(r => ({
                     title: r.clienteNombre ?? 'Reserva',
@@ -73,7 +71,6 @@ export default function HabitacionDetalle() {
                 }));
                 setReservas(eventos);
 
-                // Si hay estancia activa, cargar detalle
                 if (habEncontrada.idEstanciaActiva) {
                     const estRes = await api.get(`/Estancia/${habEncontrada.idEstanciaActiva}`);
                     setEstanciaActiva(estRes.data);
@@ -88,7 +85,6 @@ export default function HabitacionDetalle() {
         cargarDatos();
     }, [id, navigate]);
 
-    // Función para ejecutar acciones sensibles con confirmación
     const confirmarAccion = async (titulo, texto, accionApi, callbackExito) => {
         const resultado = await swal.fire({
             title: titulo,
@@ -106,7 +102,6 @@ export default function HabitacionDetalle() {
             await accionApi();
             if (callbackExito) callbackExito();
             swal.fire('Éxito', 'Acción realizada correctamente', 'success');
-            // Recargar datos
             const habRes = await api.get('/Habitacion/estado-actual');
             const habActualizada = habRes.data.find(h => h.idHabitacion === parseInt(id));
             setHabitacion(habActualizada);
@@ -168,15 +163,13 @@ export default function HabitacionDetalle() {
 
     return (
         <div>
-            {/* Botón volver */}
             <button
                 className="btn btn-ghost btn-sm mb-4 gap-2"
-                onClick={() => navigate(-1)}
+                onClick={() => navigate('/habitaciones')}   // ← Vuelve a la lista de tipos
             >
                 <ArrowLeft size={18} /> Volver
             </button>
 
-            {/* Cabecera */}
             <div className="card bg-white border border-base-300 shadow-sm mb-6">
                 <div className="card-body p-6">
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -200,11 +193,8 @@ export default function HabitacionDetalle() {
                 </div>
             </div>
 
-            {/* Contenido en grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Columna izquierda: información y acciones */}
                 <div className="lg:col-span-1 space-y-6">
-                    {/* Información */}
                     <div className="card bg-white border border-base-300 shadow-sm">
                         <div className="card-body p-4">
                             <h4 className="card-title text-base font-medium mb-3">Información</h4>
@@ -226,7 +216,6 @@ export default function HabitacionDetalle() {
                         </div>
                     </div>
 
-                    {/* Acciones */}
                     <div className="card bg-white border border-base-300 shadow-sm">
                         <div className="card-body p-4">
                             <h4 className="card-title text-base font-medium mb-3">Acciones</h4>
@@ -248,7 +237,6 @@ export default function HabitacionDetalle() {
                                     </>
                                 )}
 
-                                {/* Acciones según estado */}
                                 {habitacion.accionesDisponibles?.includes('CheckIn') && (
                                     <>
                                         <button className="btn btn-primary btn-sm gap-1" onClick={() => navigate(`/habitaciones/${id}/entrada`)}>
@@ -274,11 +262,6 @@ export default function HabitacionDetalle() {
                                         <Wrench size={16} /> Mantenimiento
                                     </button>
                                 )}
-                                {habitacion.accionesDisponibles?.includes('FinalizarLimpieza') && (
-                                    <button className="btn btn-info btn-sm gap-1" onClick={() => cambiarEstado(1, 'Finalizar Limpieza')}>
-                                        <RotateCcw size={16} /> Finalizar limpieza
-                                    </button>
-                                )}
                                 {habitacion.accionesDisponibles?.includes('Habilitar') && (
                                     <button className="btn btn-success btn-sm gap-1" onClick={() => cambiarEstado(1, 'Habilitar Habitación')}>
                                         <RotateCcw size={16} /> Habilitar
@@ -294,7 +277,6 @@ export default function HabitacionDetalle() {
                     </div>
                 </div>
 
-                {/* Columna derecha: calendario de reservas */}
                 <div className="lg:col-span-2">
                     <div className="card bg-white border border-base-300 shadow-sm h-full">
                         <div className="card-body p-4 flex flex-col">
@@ -344,7 +326,6 @@ export default function HabitacionDetalle() {
                 </div>
             </div>
 
-            {/* Tooltip flotante del calendario */}
             {tooltip.visible && tooltip.contenido && (
                 <div
                     className="fixed z-[9999] pointer-events-none"

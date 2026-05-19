@@ -33,7 +33,6 @@ export default function Salida() {
 
                 setHabitacion(habEncontrada);
 
-                // Si no hay endpoint directo, obtén la estancia activa desde la lista
                 if (estRes.data) {
                     setEstancia(estRes.data);
                 }
@@ -81,7 +80,6 @@ export default function Salida() {
 
     if (!estancia || !habitacion) return null;
 
-    // Evento para el calendario (rango de estancia)
     const eventoEstancia = {
         title: estancia.clienteNombreCompleto || 'Estancia',
         start: new Date(estancia.fechaCheckin),
@@ -93,10 +91,9 @@ export default function Salida() {
 
     return (
         <div className="max-w-4xl mx-auto">
-            {/* Botón volver */}
             <button
                 className="btn btn-ghost btn-sm mb-4 gap-2"
-                onClick={() => navigate(-1)}
+                onClick={() => navigate(`/habitaciones/${id}`)}   // ← Vuelve al detalle
             >
                 <ArrowLeft size={18} /> Volver
             </button>
@@ -112,9 +109,7 @@ export default function Salida() {
                 <div className="mt-4 w-20 h-1 bg-amber-500/60"></div>
             </div>
 
-            {/* Tarjeta resumen */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                {/* Datos del huésped */}
                 <div className="card bg-white border border-base-300 shadow-sm">
                     <div className="card-body p-6">
                         <h4 className="card-title text-base font-medium mb-4 flex items-center gap-2">
@@ -126,8 +121,6 @@ export default function Salida() {
                         )}
                     </div>
                 </div>
-
-                {/* Datos de la habitación */}
                 <div className="card bg-white border border-base-300 shadow-sm">
                     <div className="card-body p-6">
                         <h4 className="card-title text-base font-medium mb-4 flex items-center gap-2">
@@ -139,7 +132,6 @@ export default function Salida() {
                 </div>
             </div>
 
-            {/* Fechas y monto */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
                 <div className="stat bg-white border border-base-300 rounded-xl p-4 shadow-sm">
                     <div className="stat-title text-xs font-medium text-base-content/60">Entrada</div>
@@ -161,7 +153,6 @@ export default function Salida() {
                 </div>
             </div>
 
-            {/* Calendario con el rango */}
             <div className="card bg-white border border-base-300 shadow-sm mb-8">
                 <div className="card-body p-6">
                     <h4 className="card-title text-base font-medium mb-4 flex items-center gap-2">
@@ -185,9 +176,8 @@ export default function Salida() {
                 </div>
             </div>
 
-            {/* Acciones */}
             <div className="flex justify-end gap-3">
-                <button className="btn btn-ghost" onClick={() => navigate(-1)}>
+                <button className="btn btn-ghost" onClick={() => navigate(`/habitaciones/${id}`)}>
                     Cancelar
                 </button>
                 <LoadingButton

@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 
 export default function ReservaForm() {
-    const { id } = useParams(); // id de la habitación
+    const { id } = useParams();
     const navigate = useNavigate();
     const { user } = useAuth();
     const { configuracionHotel } = useHotelData();
@@ -22,7 +22,6 @@ export default function ReservaForm() {
     const [cargandoHabitacion, setCargandoHabitacion] = useState(true);
     const [cargandoAccion, setCargandoAccion] = useState(false);
 
-    // Datos del formulario
     const [tipoDocumento, setTipoDocumento] = useState('1');
     const [documento, setDocumento] = useState('');
     const [nombres, setNombres] = useState('');
@@ -33,12 +32,10 @@ export default function ReservaForm() {
     const [metodoPago, setMetodoPago] = useState('005');
     const [usarClienteAnonimo, setUsarClienteAnonimo] = useState(false);
 
-    // Búsqueda de cliente
     const [busquedaCliente, setBusquedaCliente] = useState('');
     const [resultadosBusqueda, setResultadosBusqueda] = useState([]);
     const [clienteEncontrado, setClienteEncontrado] = useState(null);
 
-    // Consulta DNI
     const [consultandoDni, setConsultandoDni] = useState(false);
 
     useEffect(() => {
@@ -58,7 +55,6 @@ export default function ReservaForm() {
         cargarHabitacion();
     }, [id, navigate]);
 
-    // Efecto: si cambian datos del formulario manual, limpiar cliente encontrado
     useEffect(() => {
         setClienteEncontrado(null);
     }, [documento, nombres, apellidos]);
@@ -158,7 +154,7 @@ export default function ReservaForm() {
 
     return (
         <div className="max-w-3xl mx-auto">
-            <button className="btn btn-ghost btn-sm mb-4 gap-2" onClick={() => navigate(-1)}>
+            <button className="btn btn-ghost btn-sm mb-4 gap-2" onClick={() => navigate(`/habitaciones/${id}`)}>  {/* Vuelve al detalle */}
                 <ArrowLeft size={18} /> Volver
             </button>
 
@@ -173,7 +169,6 @@ export default function ReservaForm() {
                 <div className="mt-4 w-20 h-1 bg-amber-500/60"></div>
             </div>
 
-            {/* Buscador de clientes */}
             <div className="card bg-white border border-base-300 shadow-sm mb-6">
                 <div className="card-body p-6">
                     <h4 className="card-title text-base font-medium mb-3">Cliente</h4>
@@ -268,7 +263,6 @@ export default function ReservaForm() {
                 </div>
             </div>
 
-            {/* Fechas y método de pago */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
                 <div className="card bg-white border border-base-300 shadow-sm">
                     <div className="card-body p-4">
@@ -313,9 +307,8 @@ export default function ReservaForm() {
                 </div>
             </div>
 
-            {/* Acciones finales */}
             <div className="flex justify-end gap-3">
-                <button className="btn btn-ghost" onClick={() => navigate(-1)}>Cancelar</button>
+                <button className="btn btn-ghost" onClick={() => navigate(`/habitaciones/${id}`)}>Cancelar</button>
                 <LoadingButton
                     type="button"
                     isLoading={cargandoAccion}
