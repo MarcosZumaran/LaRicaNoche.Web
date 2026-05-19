@@ -5,7 +5,12 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/hub': {
+      '/api': {
+        target: 'http://localhost:5054',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/hotelhub': {
         target: 'http://localhost:5054',
         ws: true,
         changeOrigin: true,

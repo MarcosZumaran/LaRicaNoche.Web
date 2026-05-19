@@ -1,8 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import * as signalR from '@microsoft/signalr';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5054';
-
 export function useSignalR(eventName, callback) {
   const [isConnected, setIsConnected] = useState(false);
   const callbackRef = useRef(callback);
@@ -13,8 +11,8 @@ export function useSignalR(eventName, callback) {
 
   useEffect(() => {
     const connection = new signalR.HubConnectionBuilder()
-      .withUrl(`${API_BASE_URL}/hotelhub`, {
-        accessTokenFactory: () => localStorage.getItem('token')
+      .withUrl('/hotelhub', {
+        withCredentials: true
       })
       .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
       .configureLogging(signalR.LogLevel.Warning)

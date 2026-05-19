@@ -4,78 +4,70 @@ import api from '../api/axios';
 const AuthContext = createContext(undefined);
 
 export function AuthProvider({ children }) {
-    // Intentamos recuperar el token y los datos del usuario desde localStorage al montar el componente
-    const [token, setToken] = useState(() => localStorage.getItem('token'));
-    const [user, setUser] = useState(() => {
-        const storedUser = localStorage.getItem('user');
-        return storedUser ? JSON.parse(storedUser) : null;
-    });
-    const [isLoading, setIsLoading] = useState(false);
+    const [user, setUser] = useState(null);
+    const [isLoading, setIsLoading] = useState(true); // Comienza cargando mientras verifica sesión
 
-    // VALIDACIÓN DE EXPIRACIÓN DEL TOKEN AL INICIAR
+    // Al montar el componente, intenta recuperar la sesión con /me
     useEffect(() => {
-        const storedToken = localStorage.getItem('token');
-        if (storedToken) {
+        const checkAuth = async () => {
             try {
-                const payload = JSON.parse(atob(storedToken.split('.')[1]));
-                if (payload.exp * 1000 < Date.now()) {
-                    // Token expirado: limpiar
-                    localStorage.removeItem('token');
-                    localStorage.removeItem('user');
-                    setToken(null);
-                    setUser(null);
-                }
-            } catch (e) {
-                // Token corrupto: limpiar
-                localStorage.removeItem('token');
-                localStorage.removeItem('user');
-                setToken(null);
+                const res = await api.get('/Usuario/me');
+                setUser(res.data);
+            } catch (error) {
+                // No autenticado o token inválido/expirado - sin usuario
                 setUser(null);
+            } finally {
+                setIsLoading(false);
             }
-        }
+        };
+        checkAuth();
     }, []);
-
-    // Sincronizamos el token con localStorage cada vez que cambie
-    useEffect(() => {
-        if (token) {
-            localStorage.setItem('token', token);
-        } else {
-            localStorage.removeItem('token');
-        }
-    }, [token]);
-
-    // Sincronizamos el usuario con localStorage cada vez que cambie
-    useEffect(() => {
-        if (user) {
-            localStorage.setItem('user', JSON.stringify(user));
-        } else {
-            localStorage.removeItem('user');
-        }
-    }, [user]);
 
     const login = async (username, password) => {
         const res = await api.post('/Usuario/login', { username, password });
-        const { token: jwt, usuario } = res.data;
-        setToken(jwt);
+        const usuario = res.data; // Solo recibimos el objeto usuario (sin token)
         setUser(usuario);
-        return usuario; // Devolvemos el usuario para que el Login pueda redirigir según el rol
+        return usuario; // Para que el Login pueda redirigir según el rol
     };
 
-    const logout = () => {
-        setToken(null);
+    const logout = async () => {
+        try {
+            await api.post('/Usuario/logout');
+        } catch (error) {
+            // Si falla, limpiamos igual
+        }
         setUser(null);
     };
 
+    // Efecto para detectar errores 401 globales y cerrar sesión
+    useEffect(() => {
+        const interceptor = api.interceptors.response.use(
+            (response) => response,
+            (error) => {
+                if (error.response && error.response.status === 401) {
+                    setUser(null);
+                }
+                return Promise.reject(error);
+            }
+        );
+
+        // Cleanup del interceptor
+        return () => {
+            api.interceptors.response.eject(interceptor);
+        };
+    }, []);
+
+    // Escucha eventos personalizados de cierre de sesión
     useEffect(() => {
         const handleUnauthorized = () => {
-            logout();
+            setUser(null);
         };
         window.addEventListener('auth:unauthorized', handleUnauthorized);
         return () => window.removeEventListener('auth:unauthorized', handleUnauthorized);
     }, []);
 
     return (
-        <AuthContext.Provider value={{ user, token, login, logout, isLoading }}>
+        <AuthContext.Provider value={{ user, login, logout, isLoading }}>
             {children}
         </AuthContext.Provider>
     );
