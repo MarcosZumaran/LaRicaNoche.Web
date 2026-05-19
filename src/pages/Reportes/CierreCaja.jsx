@@ -83,27 +83,30 @@ export default function CierreCaja() {
     }
   };
 
-  const cargarEstadoEnvio = async (fechaConsulta) => {
-    try {
-      const res = await api.get('/Reporte/cierre-caja/estado-envio', {
-        params: { fecha: fechaConsulta },
-      });
-      setEstadoEnvio(res.data);
-    } catch (error) {
-      console.error('Error al cargar estado de envío:', error);
-    }
-  };
+  // ------------------------------------------------
+  // Descomentar cuando exista el endpoint real
+  // const cargarEstadoEnvio = async (fechaConsulta) => {
+  //   try {
+  //     const res = await api.get('/Reporte/cierre-caja/estado-envio', {
+  //       params: { fecha: fechaConsulta },
+  //     });
+  //     setEstadoEnvio(res.data);
+  //   } catch (error) {
+  //     console.error('Error al cargar estado de envío:', error);
+  //   }
+  // };
+  // ------------------------------------------------
 
   useEffect(() => {
     cargarCierre(fecha);
-    cargarEstadoEnvio(fecha);
+    // cargarEstadoEnvio(fecha);   // Se activará cuando el endpoint exista
   }, [fecha]);
 
   useSignalR('CierreCajaEnviado', (data) => {
     const fechaFormateada = new Date(data.fecha).toLocaleDateString('es-PE');
     toast.success(`📤 Cierre de caja del ${fechaFormateada} enviado a SUNAT.`);
     cargarCierre(fecha);
-    cargarEstadoEnvio(fecha);
+    // cargarEstadoEnvio(fecha);
   });
 
   const totalGeneral = datos.reduce((sum, item) => sum + (item.ingresos || 0), 0);
@@ -161,7 +164,7 @@ export default function CierreCaja() {
         params: { fecha },
       });
       swal.fire('Enviado', 'El cierre de caja fue marcado como enviado a SUNAT.', 'success');
-      cargarEstadoEnvio(fecha);
+      // cargarEstadoEnvio(fecha);  // Refrescar estado cuando exista
     } catch (error) {
       swal.fire('Error', 'No se pudo simular el envío', 'error');
     } finally {
@@ -214,7 +217,7 @@ export default function CierreCaja() {
                 className="btn btn-primary"
                 onClick={() => {
                   cargarCierre(fecha);
-                  cargarEstadoEnvio(fecha);
+                  // cargarEstadoEnvio(fecha);
                 }}
                 disabled={cargando}
               >
