@@ -5,16 +5,21 @@ const AuthContext = createContext(undefined);
 
 export function AuthProvider({ children }) {
     const [user, setUser] = useState(null);
-    const [isLoading, setIsLoading] = useState(true); // Comienza cargando mientras verifica sesión
+    const [isLoading, setIsLoading] = useState(true);
 
-    // Al montar el componente, intenta recuperar la sesión con /me
     useEffect(() => {
+        // Si la ruta actual es /login, no verificamos sesión.
+        if (window.location.pathname === '/login') {
+            setIsLoading(false);
+            return;
+        }
+
         const checkAuth = async () => {
             try {
                 const res = await api.get('/Usuario/me');
                 setUser(res.data);
             } catch (error) {
-                // No autenticado o token inválido/expirado - sin usuario
+                // No autenticado o token inválido/expirado → sin usuario.
                 setUser(null);
             } finally {
                 setIsLoading(false);
@@ -25,7 +30,7 @@ export function AuthProvider({ children }) {
 
     const login = async (username, password) => {
         const res = await api.post('/Usuario/login', { username, password });
-        const usuario = res.data; // Solo recibimos el objeto usuario (sin token)
+        const usuario = res.data; // Solo recibimos el objeto usuario
         setUser(usuario);
         return usuario; // Para que el Login pueda redirigir según el rol
     };
