@@ -10,10 +10,18 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
-      '/hotelhub': {
+      // Ruta específica para la negociación HTTP de SignalR
+      '/hotelhub/negotiate': {
         target: 'http://localhost:5054',
+        changeOrigin: true,
+        secure: false
+      },
+      // Ruta para el tráfico WebSocket
+      '/hotelhub': {
+        target: 'ws://localhost:5054',
         ws: true,
         changeOrigin: true,
+        secure: false
       }
     }
   }

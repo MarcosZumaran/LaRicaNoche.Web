@@ -1,6 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import * as signalR from '@microsoft/signalr';
 
+// En desarrollo con Vite, forzamos Long Polling porque el proxy no maneja bien WebSockets.
+// En producción, se usará WebSockets automáticamente.
+const isDevelopment = import.meta.env.DEV;
+
 export function useSignalR(eventName, callback) {
   const [isConnected, setIsConnected] = useState(false);
   const callbackRef = useRef(callback);
@@ -10,10 +14,14 @@ export function useSignalR(eventName, callback) {
   }, [callback]);
 
   useEffect(() => {
+    const options = { withCredentials: true };
+    if (isDevelopment) {
+      // Forzar Long Polling en desarrollo
+      options.transport = signalR.HttpTransportType.LongPolling;
+    }
+
     const connection = new signalR.HubConnectionBuilder()
-      .withUrl('/hotelhub', {
-        withCredentials: true
-      })
+      .withUrl('/hotelhub', options)
       .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
       .configureLogging(signalR.LogLevel.Warning)
       .build();
