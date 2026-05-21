@@ -1,9 +1,23 @@
 import { useState, useEffect, useRef } from 'react';
 import * as signalR from '@microsoft/signalr';
 
-// En desarrollo con Vite, forzamos Long Polling porque el proxy no maneja bien WebSockets.
-// En producción, se usará WebSockets automáticamente.
-const isDevelopment = import.meta.env.DEV;
+// Singleton: una única conexión compartida para toda la app
+let sharedConnection = null;
+let sharedConnectionPromise = null;
+
+function getOrCreateConnection() {
+  if (!sharedConnection) {
+    sharedConnection = new signalR.HubConnectionBuilder()
+      .withUrl('/hotelhub', { withCredentials: true })
+      .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
+      .configureLogging(signalR.LogLevel.Warning)
+      .build();
+
+    sharedConnectionPromise = sharedConnection.start()
+      .catch(err => console.error('SignalR global connection error:', err));
+  }
+  return sharedConnection;
+}
 
 export function useSignalR(eventName, callback) {
   const [isConnected, setIsConnected] = useState(false);
@@ -14,17 +28,14 @@ export function useSignalR(eventName, callback) {
   }, [callback]);
 
   useEffect(() => {
-    const options = { withCredentials: true };
-    if (isDevelopment) {
-      // Forzar Long Polling en desarrollo
-      options.transport = signalR.HttpTransportType.LongPolling;
-    }
+    const connection = getOrCreateConnection();
 
-    const connection = new signalR.HubConnectionBuilder()
-      .withUrl('/hotelhub', options)
-      .withAutomaticReconnect([0, 2000, 5000, 10000, 30000])
-      .configureLogging(signalR.LogLevel.Warning)
-      .build();
+    // Si la conexión ya está lista, actualizamos el estado de una vez
+    if (connection.state === signalR.HubConnectionState.Connected) {
+      setIsConnected(true);
+    } else {
+      sharedConnectionPromise?.then(() => setIsConnected(true)).catch(() => { });
+    }
 
     const handler = (data) => {
       if (callbackRef.current) {
@@ -34,17 +45,19 @@ export function useSignalR(eventName, callback) {
 
     connection.on(eventName, handler);
 
-    connection.start()
-      .then(() => setIsConnected(true))
-      .catch(err => console.error('SignalR connection error:', err));
+    const onReconnecting = () => setIsConnected(false);
+    const onReconnected = () => setIsConnected(true);
+    const onClose = () => setIsConnected(false);
 
-    connection.onreconnecting(() => setIsConnected(false));
-    connection.onreconnected(() => setIsConnected(true));
-    connection.onclose(() => setIsConnected(false));
+    connection.onreconnecting(onReconnecting);
+    connection.onreconnected(onReconnected);
+    connection.onclose(onClose);
 
     return () => {
       connection.off(eventName, handler);
-      connection.stop();
+      connection.onreconnecting(onReconnecting);
+      connection.onreconnected(onReconnected);
+      connection.onclose(onClose);
     };
   }, [eventName]);
 
