@@ -104,7 +104,7 @@ export default function CierreCaja() {
 
   useSignalR('CierreCajaEnviado', (data) => {
     const fechaFormateada = new Date(data.fecha).toLocaleDateString('es-PE');
-    toast.success(`📤 Cierre de caja del ${fechaFormateada} enviado a SUNAT.`);
+    toast.success(`Cierre de caja del ${fechaFormateada} enviado a SUNAT.`);
     cargarCierre(fecha);
     // cargarEstadoEnvio(fecha);
   });

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
     useReactTable, getCoreRowModel, getSortedRowModel,
-     getFilteredRowModel,
+    getFilteredRowModel,
     flexRender, createColumnHelper,
 } from '@tanstack/react-table';
 import { isBefore, isAfter, isSameDay, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
@@ -11,6 +11,7 @@ import { DoorOpen, FileText } from 'lucide-react';
 import PdfViewerModal from '../../components/ui/PdfViewerModal';
 import DataTable from '../../components/ui/DataTable';
 import TableFilters from '../../components/ui/TableFilters';
+import { useSignalR } from '../../hooks/useSignalR'; // ← NUEVO
 
 const columnHelper = createColumnHelper();
 
@@ -23,12 +24,22 @@ export default function HistorialEstancias() {
     const [pdfUrl, setPdfUrl] = useState(null);
     const [mostrarPdf, setMostrarPdf] = useState(false);
 
-    useEffect(() => {
+    const cargarEstancias = () => {
+        setCargando(true);
         api.get('/Estancia')
             .then(res => setEstancias(res.data))
             .catch(() => swal.fire('Error', 'No se pudo cargar el historial de estancias', 'error'))
             .finally(() => setCargando(false));
+    };
+
+    useEffect(() => {
+        cargarEstancias();
     }, []);
+
+    // Tiempo real: cuando se crea una nueva estancia, recargamos
+    useSignalR('NuevaEstancia', () => {
+        cargarEstancias();
+    });
 
     const verPdf = (idEstancia) => {
         const url = "/Pdf/Estancia/" + idEstancia;
@@ -112,7 +123,6 @@ export default function HistorialEstancias() {
         onGlobalFilterChange: setGlobalFilter,
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),
-        
         getFilteredRowModel: getFilteredRowModel(),
     });
 

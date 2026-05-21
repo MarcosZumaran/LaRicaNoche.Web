@@ -7,6 +7,7 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import { useAuth } from '../../contexts/AuthContext';
 import { useHotelData } from '../../contexts/HotelDataContext';
+import { useSignalR } from '../../hooks/useSignalR';  // ← NUEVO
 import api from '../../api/axios';
 import swal from '../../lib/swal';
 import LoadingButton from '../../components/ui/LoadingButton';
@@ -37,53 +38,61 @@ export default function HabitacionDetalle() {
     const [cargandoAccion, setCargandoAccion] = useState(false);
     const [tooltip, setTooltip] = useState({ visible: false, contenido: null, x: 0, y: 0 });
 
-    useEffect(() => {
-        const cargarDatos = async () => {
-            try {
-                const habRes = await api.get('/Habitacion/estado-actual');
-                const habEncontrada = habRes.data.find(h => h.idHabitacion === parseInt(id));
-                if (!habEncontrada) throw new Error('Habitación no encontrada');
-                setHabitacion(habEncontrada);
+    const cargarDatos = async () => {
+        try {
+            const habRes = await api.get('/Habitacion/estado-actual');
+            const habEncontrada = habRes.data.find(h => h.idHabitacion === parseInt(id));
+            if (!habEncontrada) throw new Error('Habitación no encontrada');
+            setHabitacion(habEncontrada);
 
-                const reservasRes = await api.get(`/Estancia/reservas/${id}`);
-                const eventos = reservasRes.data.map(r => ({
-                    title: r.clienteNombre ?? 'Reserva',
-                    start: new Date(r.fechaEntradaPrevista),
-                    end: new Date(r.fechaSalidaPrevista),
-                    backgroundColor:
-                        r.estado === 'Cancelada' ? '#6b7280' :
-                            (r.esNoShow ? '#dc2626' :
-                                (r.estado === 'Confirmada' &&
-                                    new Date(r.fechaEntradaPrevista).toDateString() === new Date().toDateString()
-                                    ? '#f59e0b' : '#22c55e')),
-                    borderColor: 'transparent',
-                    extendedProps: {
-                        idReserva: r.idReserva,
-                        cliente: r.clienteNombre,
-                        entrada: r.fechaEntradaPrevista,
-                        salida: r.fechaSalidaPrevista,
-                        monto: r.montoTotal,
-                        estado: r.estado,
-                        documento: r.documentoCliente,
-                        observaciones: r.observaciones,
-                        esNoShow: r.esNoShow
-                    }
-                }));
-                setReservas(eventos);
-
-                if (habEncontrada.idEstanciaActiva) {
-                    const estRes = await api.get(`/Estancia/${habEncontrada.idEstanciaActiva}`);
-                    setEstanciaActiva(estRes.data);
+            const reservasRes = await api.get(`/Estancia/reservas/${id}`);
+            const eventos = reservasRes.data.map(r => ({
+                title: r.clienteNombre ?? 'Reserva',
+                start: new Date(r.fechaEntradaPrevista),
+                end: new Date(r.fechaSalidaPrevista),
+                backgroundColor:
+                    r.estado === 'Cancelada' ? '#6b7280' :
+                        (r.esNoShow ? '#dc2626' :
+                            (r.estado === 'Confirmada' &&
+                                new Date(r.fechaEntradaPrevista).toDateString() === new Date().toDateString()
+                                ? '#f59e0b' : '#22c55e')),
+                borderColor: 'transparent',
+                extendedProps: {
+                    idReserva: r.idReserva,
+                    cliente: r.clienteNombre,
+                    entrada: r.fechaEntradaPrevista,
+                    salida: r.fechaSalidaPrevista,
+                    monto: r.montoTotal,
+                    estado: r.estado,
+                    documento: r.documentoCliente,
+                    observaciones: r.observaciones,
+                    esNoShow: r.esNoShow
                 }
-            } catch (error) {
-                swal.fire('Error', 'No se pudo cargar la información de la habitación', 'error');
-                navigate('/habitaciones');
-            } finally {
-                setCargando(false);
+            }));
+            setReservas(eventos);
+
+            if (habEncontrada.idEstanciaActiva) {
+                const estRes = await api.get(`/Estancia/${habEncontrada.idEstanciaActiva}`);
+                setEstanciaActiva(estRes.data);
             }
-        };
+        } catch (error) {
+            swal.fire('Error', 'No se pudo cargar la información de la habitación', 'error');
+            navigate('/habitaciones');
+        } finally {
+            setCargando(false);
+        }
+    };
+
+    useEffect(() => {
         cargarDatos();
     }, [id, navigate]);
+
+    // Tiempo real: si esta misma habitación cambia de estado, recargamos
+    useSignalR('EstadoHabitacionCambiado', (data) => {
+        if (data.idHabitacion === parseInt(id)) {
+            cargarDatos();
+        }
+    });
 
     const confirmarAccion = async (titulo, texto, accionApi, callbackExito) => {
         const resultado = await swal.fire({
@@ -102,15 +111,7 @@ export default function HabitacionDetalle() {
             await accionApi();
             if (callbackExito) callbackExito();
             swal.fire('Éxito', 'Acción realizada correctamente', 'success');
-            const habRes = await api.get('/Habitacion/estado-actual');
-            const habActualizada = habRes.data.find(h => h.idHabitacion === parseInt(id));
-            setHabitacion(habActualizada);
-            if (habActualizada?.idEstanciaActiva) {
-                const estRes = await api.get(`/Estancia/${habActualizada.idEstanciaActiva}`);
-                setEstanciaActiva(estRes.data);
-            } else {
-                setEstanciaActiva(null);
-            }
+            cargarDatos();
         } catch (error) {
             swal.fire('Error', error.response?.data?.mensaje || 'Error al ejecutar la acción', 'error');
         } finally {
@@ -165,7 +166,7 @@ export default function HabitacionDetalle() {
         <div>
             <button
                 className="btn btn-ghost btn-sm mb-4 gap-2"
-                onClick={() => navigate('/habitaciones')}   // ← Vuelve a la lista de tipos
+                onClick={() => navigate('/habitaciones')}
             >
                 <ArrowLeft size={18} /> Volver
             </button>

@@ -1,6 +1,7 @@
 import { useAuth } from '../../contexts/AuthContext';
 import useTheme from '../../hooks/useTheme';
 import ConnectionIndicator from '../ui/ConnectionIndicator';
+import NotificationBell from '../ui/NotificationBell'; // ← NUEVO
 import { LogOut, Menu, Sun, Moon } from 'lucide-react';
 
 export default function Navbar({ onMenuClick }) {
@@ -20,6 +21,7 @@ export default function Navbar({ onMenuClick }) {
                 </button>
 
                 <ConnectionIndicator />
+                <NotificationBell />
 
                 <div className="hidden sm:flex items-center gap-2">
                     <div className="avatar placeholder">

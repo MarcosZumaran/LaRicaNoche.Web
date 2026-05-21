@@ -3,6 +3,7 @@ import api from '../../api/axios';
 import { Bed, Hash, DollarSign, Layers, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import swal from '../../lib/swal';
+import { useSignalR } from '../../hooks/useSignalR'; // ← NUEVO
 
 export default function EstadoHabitaciones() {
   const [habitaciones, setHabitaciones] = useState([]);
@@ -19,10 +20,19 @@ export default function EstadoHabitaciones() {
     }
   };
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     cargarDatos();
   }, []);
+
+  // Tiempo real: recargar ante cambios de estado
+  useSignalR('EstadoHabitacionCambiado', () => {
+    cargarDatos();
+  });
+
+  // Tiempo real: recargar ante nuevas estancias (cambia ocupación)
+  useSignalR('NuevaEstancia', () => {
+    cargarDatos();
+  });
 
   const estadoBadge = (estado) => {
     const clases = {

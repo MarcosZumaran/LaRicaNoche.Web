@@ -71,13 +71,18 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    const cargar = async () => await cargarDatos();
-    cargar();
     cargarDatos();
   }, []);
 
+  // Tiempo real: cambios de estado
   useSignalR('EstadoHabitacionCambiado', (data) => {
-    toast.success(`Habitacion ${data.numero} ahora esta: ${data.nuevoEstado}`);
+    toast.success(`Habitación ${data.numero} ahora está: ${data.nuevoEstado}`);
+    cargarDatos();
+  });
+
+  // Tiempo real: nuevas estancias (check‑in)
+  useSignalR('NuevaEstancia', (data) => {
+    toast.success(`Nueva estancia en ${data.numeroHabitacion} para ${data.cliente}`);
     cargarDatos();
   });
 
@@ -221,13 +226,13 @@ export default function Dashboard() {
         <div className="card bg-base-100 shadow-sm border border-base-200">
           <div className="card-body">
             <h3 className="card-title text-lg font-semibold mb-4">
-              Ocupacion actual
+              Ocupación actual
             </h3>
             <div className="h-64 flex items-center justify-center">
               {datos.totalHabitaciones > 0 ? (
                 <Doughnut data={datosOcupacion} options={opcionesOcupacion} />
               ) : (
-                <p className="text-base-content/50">Sin datos de ocupacion</p>
+                <p className="text-base-content/50">Sin datos de ocupación</p>
               )}
             </div>
           </div>
@@ -236,7 +241,7 @@ export default function Dashboard() {
         <div className="card bg-base-100 shadow-sm border border-base-200">
           <div className="card-body">
             <h3 className="card-title text-lg font-semibold mb-4">
-              Productos mas consumidos (30 dias)
+              Productos más consumidos (30 días)
             </h3>
             <div className="h-64">
               {topProductos.length > 0 ? (
@@ -265,7 +270,7 @@ export default function Dashboard() {
                   <th>Tipo</th>
                   <th>Precio</th>
                   <th>Estado</th>
-                  <th>Ultimo Cambio</th>
+                  <th>Último Cambio</th>
                 </tr>
               </thead>
               <tbody>
@@ -277,10 +282,10 @@ export default function Dashboard() {
                     <td>
                       <span
                         className={`badge ${h.estado === 'Disponible' ? 'badge-success' :
-                            h.estado === 'Ocupada' ? 'badge-warning' :
-                              h.estado === 'Limpieza' ? 'badge-info' :
-                                h.estado === 'Mantenimiento' ? 'badge-error' :
-                                  h.estado === 'En Reserva' ? 'badge-warning' : 'badge-ghost'
+                          h.estado === 'Ocupada' ? 'badge-warning' :
+                            h.estado === 'Limpieza' ? 'badge-info' :
+                              h.estado === 'Mantenimiento' ? 'badge-error' :
+                                h.estado === 'En Reserva' ? 'badge-warning' : 'badge-ghost'
                           }`}
                       >
                         {h.estado}
