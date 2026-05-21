@@ -21,11 +21,7 @@ export default function Salida() {
     useEffect(() => {
         const cargarDatos = async () => {
             try {
-                const [habRes, estRes] = await Promise.all([
-                    api.get('/Habitacion/estado-actual'),
-                    api.get(`/Estancia/${id}/detalle`) // Asumimos que existe, si no usamos otro
-                ]);
-
+                const habRes = await api.get('/Habitacion/estado-actual');
                 const habEncontrada = habRes.data.find(h => h.idHabitacion === parseInt(id));
                 if (!habEncontrada || !habEncontrada.idEstanciaActiva) {
                     throw new Error('No hay estancia activa en esta habitación');
@@ -33,9 +29,9 @@ export default function Salida() {
 
                 setHabitacion(habEncontrada);
 
-                if (estRes.data) {
-                    setEstancia(estRes.data);
-                }
+                // Obtener detalle de la estancia activa
+                const estRes = await api.get(`/Estancia/${habEncontrada.idEstanciaActiva}`);
+                setEstancia(estRes.data);
             } catch (error) {
                 swal.fire('Error', error.message || 'No se pudo cargar la información', 'error');
                 navigate(`/habitaciones/${id}`);
@@ -47,9 +43,13 @@ export default function Salida() {
     }, [id, navigate]);
 
     const confirmarSalida = async () => {
+        const nombreCliente = estancia?.clienteTitular
+            ? `${estancia.clienteTitular.nombres} ${estancia.clienteTitular.apellidos}`
+            : 'el huésped';
+
         const resultado = await swal.fire({
             title: '¿Confirmar salida?',
-            html: `Estás por registrar la salida de <strong>${estancia?.clienteNombreCompleto || 'el huésped'}</strong>.<br/>La habitación pasará a estado <strong>Limpieza</strong>.`,
+            html: `Estás por registrar la salida de <strong>${nombreCliente}</strong>.<br/>La habitación pasará a estado <strong>Limpieza</strong>.`,
             icon: 'question',
             showCancelButton: true,
             confirmButtonText: 'Sí, registrar salida',
@@ -80,8 +80,12 @@ export default function Salida() {
 
     if (!estancia || !habitacion) return null;
 
+    const nombreCliente = estancia.clienteTitular
+        ? `${estancia.clienteTitular.nombres} ${estancia.clienteTitular.apellidos}`
+        : 'Huésped desconocido';
+
     const eventoEstancia = {
-        title: estancia.clienteNombreCompleto || 'Estancia',
+        title: nombreCliente,
         start: new Date(estancia.fechaCheckin),
         end: new Date(estancia.fechaCheckoutPrevista),
         backgroundColor: '#d97706',
@@ -93,7 +97,7 @@ export default function Salida() {
         <div className="max-w-4xl mx-auto">
             <button
                 className="btn btn-ghost btn-sm mb-4 gap-2"
-                onClick={() => navigate(`/habitaciones/${id}`)}   // ← Vuelve al detalle
+                onClick={() => navigate(`/habitaciones/${id}`)}
             >
                 <ArrowLeft size={18} /> Volver
             </button>
@@ -115,9 +119,11 @@ export default function Salida() {
                         <h4 className="card-title text-base font-medium mb-4 flex items-center gap-2">
                             <User size={20} className="text-amber-600" /> Huésped
                         </h4>
-                        <p className="text-xl font-light text-base-content">{estancia.clienteNombreCompleto}</p>
-                        {estancia.clienteDocumento && (
-                            <p className="text-sm text-base-content/60 mt-1">Doc: {estancia.clienteDocumento}</p>
+                        <p className="text-xl font-light text-base-content">
+                            {nombreCliente}
+                        </p>
+                        {estancia.clienteTitular?.documento && (
+                            <p className="text-sm text-base-content/60 mt-1">Doc: {estancia.clienteTitular.documento}</p>
                         )}
                     </div>
                 </div>
